@@ -95,838 +95,1020 @@
                 </button>
               </div>
             </div>
+=======
+  <div class="task-detail">
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>加载任务详情中...</p>
+    </div>
+
+    <!-- 错误状态 -->
+    <div v-else-if="error" class="error-container">
+      <div class="error-message">
+        <h3>加载失败</h3>
+        <p>{{ error }}</p>
+        <button @click="loadTask" class="retry-btn">重试</button>
+      </div>
+    </div>
+
+    <!-- 任务详情 -->
+    <div v-else-if="task" class="task-content">
+      <!-- 任务头部信息 -->
+      <div class="task-header">
+        <div class="task-title-section">
+          <h1>{{ task.title }}</h1>
+          <div class="task-meta">
+            <span class="task-id">任务ID: {{ task.id }}</span>
+            <span class="task-category">{{ task.category }}</span>
+            <span class="task-status" :class="getStatusClass(task.status)">
+              {{ getStatusText(task.status) }}
+            </span>
+          </div>
+        </div>
+        
+        <div class="task-reward">
+          <div class="reward-amount">
+            <span class="amount">{{ task.reward }}</span>
+            <span class="currency">AVAX</span>
+          </div>
+          <div class="platform-fee" v-if="platformFee">
+            <small>平台费用: {{ platformFee }} AVAX</small>
           </div>
         </div>
       </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- 主内容区域 -->
-        <div class="lg:col-span-2 space-y-8">
-          <!-- 任务描述 -->
-          <div class="glass-effect rounded-2xl p-8 border border-neutral-200/50">
-            <h2 class="text-2xl font-bold text-neutral-800 mb-6">任务描述</h2>
-            <div class="prose prose-neutral max-w-none">
-              <p class="text-neutral-700 whitespace-pre-line">{{ task.description }}</p>
-            </div>
-            
-            <!-- 技术要求 -->
-            <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-              <h3 class="font-semibold text-blue-800 mb-2">技术要求</h3>
-              <p class="text-blue-700">{{ task.requirements }}</p>
-            </div>
+      <!-- 任务描述 -->
+      <div class="task-description">
+        <h3>任务描述</h3>
+        <div class="description-content" v-html="formatDescription(task.description)"></div>
+      </div>
 
-            <!-- GitHub要求 -->
-            <div v-if="task.githubRequired" class="mt-4 p-4 bg-green-50 rounded-lg">
-              <h3 class="font-semibold text-green-800 mb-2">GitHub要求</h3>
-              <p class="text-green-700">需要定期提交开发进度到GitHub仓库</p>
-              <div v-if="task.githubRepo" class="mt-2">
-                <a :href="task.githubRepo" target="_blank" class="text-green-600 hover:text-green-800 underline">
-                  查看项目仓库
-                </a>
+      <!-- 任务要求 -->
+      <div class="task-requirements" v-if="task.requirements">
+        <h3>任务要求</h3>
+        <ul>
+          <li v-for="req in task.requirements" :key="req">{{ req }}</li>
+        </ul>
+      </div>
+
+      <!-- 任务状态流程 -->
+      <div class="task-status-section">
+        <h3>任务状态</h3>
+        <TaskStatusFlow 
+          :task="task" 
+          :current-user="currentUser"
+          @action-executed="handleActionExecuted"
+          @status-updated="handleStatusUpdated"
+        />
+      </div>
+
+      <!-- 参与者信息 -->
+      <div class="participants-section" v-if="participants.length > 0">
+        <h3>参与者 ({{ participants.length }})</h3>
+        <div class="participants-list">
+          <div 
+            v-for="participant in participants" 
+            :key="participant.address"
+            class="participant-card"
+            :class="{ 'winner': participant.address === task.winner }"
+          >
+            <div class="participant-info">
+              <div class="participant-address">{{ formatAddress(participant.address) }}</div>
+              <div class="participant-bid" v-if="participant.bidAmount">
+                出价: {{ participant.bidAmount }} AVAX
+              </div>
+              <div class="participant-time">
+                参与时间: {{ formatDate(participant.timestamp) }}
               </div>
             </div>
-
-            <!-- Chainlink验证 -->
-            <div v-if="task.chainlinkVerification" class="mt-4 p-4 bg-purple-50 rounded-lg">
-              <h3 class="font-semibold text-purple-800 mb-2">智能验证</h3>
-              <p class="text-purple-700">项目完成状态将通过Chainlink预言机进行自动验证</p>
+            <div class="participant-status">
+              <span v-if="participant.address === task.winner" class="winner-badge">
+                中标者
+              </span>
+              <span v-else-if="task.status === 'BIDDING'" class="bidding-badge">
+                竞标中
+              </span>
             </div>
-
-            <!-- 提交成果预览（待雇主确认阶段显示） -->
-            <div v-if="task.status === 3 && submissionData" class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 class="text-xl font-bold text-blue-800 mb-4">提交成果预览</h3>
-              <p class="text-neutral-700 mb-2"><strong>标题：</strong> {{ submissionData.submissionTitle }}</p>
-              <p class="text-neutral-700 whitespace-pre-line mb-4">{{ submissionData.description }}</p>
-              <button
-                @click="showProjectSubmission"
-                class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
-              >
-                查看完整成果
-              </button>
-            </div>
-            </div>
-            
-            <!-- 附件 -->
-          <div v-if="task.attachments && task.attachments.length > 0" class="glass-effect rounded-2xl p-8 border border-neutral-200/50">
-            <h2 class="text-2xl font-bold text-neutral-800 mb-6">相关附件</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div v-for="file in task.attachments" :key="file.name" 
-                   class="flex items-center p-4 border border-neutral-200 rounded-lg hover:bg-neutral-50">
-                <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mr-4">
-                  <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                  </svg>
-                </div>
-                <div class="flex-1">
-                  <h3 class="font-medium text-neutral-800">{{ file.name }}</h3>
-                  <p class="text-sm text-neutral-600">{{ file.type.toUpperCase() }}</p>
-                </div>
-                <button class="text-primary-600 hover:text-primary-800">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
+>>>>>>> ee6116c (chore: push all project files for Move链版本)
           </div>
+        </div>
+      </div>
 
-            <!-- 竞标者列表 -->
-          <div v-if="task.status === 1" class="glass-effect rounded-2xl p-8 border border-neutral-200/50">
-              <h2 class="text-2xl font-bold text-neutral-800 mb-6">竞标者 ({{ task.bidders ? task.bidders.length : 0 }})</h2>
-              <div v-if="!task.bidders || task.bidders.length === 0" class="text-center py-8">
-              <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                          </svg>
-                      </div>
-              <p class="text-gray-600">暂无竞标者</p>
-            </div>
-            <div v-else class="space-y-6">
-              <div v-for="bidder in task.bidders" :key="bidder.address" 
-                   class="border border-neutral-200 rounded-xl p-6">
-                <div class="flex items-start justify-between mb-4">
-                  <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full flex items-center justify-center">
-                      <span class="text-white font-bold">{{ bidder.address ? bidder.address.slice(-2).toUpperCase() : '?' }}</span>
-                    </div>
-                        <div>
-                      <h3 class="font-semibold text-neutral-800">{{ bidder.address ? formatAddress(bidder.address) : '未知用户' }}</h3>
-                      <p class="text-sm text-neutral-600">{{ bidder.timestamp ? formatDate(bidder.timestamp) : '时间未知' }}</p>
-                        </div>
-                        </div>
-                  <div class="text-right">
-                    <div class="flex items-center space-x-2">
-                      <span class="text-sm text-neutral-600">押金状态:</span>
-                      <span :class="bidder.depositPaid ? 'text-green-600' : 'text-red-600'" class="font-medium">
-                        {{ bidder.depositPaid ? '已支付' : '未支付' }}
-                      </span>
-                      </div>
-                    <div class="text-sm text-neutral-600 mt-1">
-                      押金: {{ bidder.depositAmount || 0 }} AVAX
-                    </div>
-                  </div>
-            </div>
-                
-                <div class="mb-4">
-                  <h4 class="font-medium text-neutral-800 mb-2">竞标提案</h4>
-                  <p class="text-neutral-700 bg-neutral-50 p-3 rounded-lg">{{ bidder.proposal ? bidder.proposal.slice(0, 100) + '...' : '暂无提案' }}</p>
+      <!-- 任务详细信息 -->
+      <div class="task-details-grid">
+        <div class="detail-card">
+          <h4>创建信息</h4>
+          <div class="detail-item">
+            <span class="label">创建者:</span>
+            <span class="value">{{ formatAddress(task.creator) }}</span>
           </div>
-
-                <div class="flex items-center justify-between">
-                  <div class="flex space-x-4">
-                    <a v-if="bidder.demoUrl" :href="bidder.demoUrl" target="_blank" 
-                       class="text-primary-600 hover:text-primary-800 text-sm font-medium">
-                      查看演示
-                    </a>
-                    <a v-if="bidder.githubProfile" :href="bidder.githubProfile" target="_blank" 
-                       class="text-primary-600 hover:text-primary-800 text-sm font-medium">
-                      GitHub资料
-                    </a>
-            </div>
-                  <button v-if="isCreator && bidder.depositPaid" 
-                          @click="selectWinner(bidder.address)"
-                          class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600">
-                    选择此人
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div class="detail-item">
+            <span class="label">创建时间:</span>
+            <span class="value">{{ formatDate(task.createdAt) }}</span>
           </div>
+          <div class="detail-item" v-if="task.deadline">
+            <span class="label">截止时间:</span>
+            <span class="value">{{ formatDate(task.deadline) }}</span>
+          </div>
+        </div>
 
-            <!-- 任务状态流程管理 -->
-            <TaskStatusFlow 
-              :task="task" 
-              @taskUpdated="loadTask"
-              @actionCompleted="handleActionCompleted"
+        <div class="detail-card">
+          <h4>区块链信息</h4>
+          <div class="detail-item">
+            <span class="label">合约地址:</span>
+            <span class="value contract-address">{{ contractAddress }}</span>
+          </div>
+          <div class="detail-item" v-if="task.txHash">
+            <span class="label">交易哈希:</span>
+            <a :href="getExplorerUrl(task.txHash)" target="_blank" class="tx-link">
+              {{ formatAddress(task.txHash) }}
+            </a>
+          </div>
+          <div class="detail-item" v-if="task.ipfsHash">
+            <span class="label">IPFS哈希:</span>
+            <span class="value ipfs-hash">{{ task.ipfsHash }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮区域 -->
+      <div class="action-buttons" v-if="availableActions.length > 0">
+        <h3>可执行操作</h3>
+        <div class="buttons-grid">
+          <button
+            v-for="action in availableActions"
+            :key="action.type"
+            @click="executeAction(action)"
+            :class="['action-btn', action.type]"
+            :disabled="actionLoading"
+          >
+            <span v-if="actionLoading && currentAction === action.type" class="loading-spinner small"></span>
+            {{ action.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 调试信息 -->
+      <div class="debug-section" v-if="showDebug">
+        <h3>调试信息</h3>
+        <div class="debug-content">
+          <pre>{{ JSON.stringify(task, null, 2) }}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 任务不存在 -->
+    <div v-else class="not-found">
+      <h2>任务不存在</h2>
+      <p>请检查任务ID是否正确</p>
+      <router-link to="/tasks" class="back-btn">返回任务大厅</router-link>
+    </div>
+
+    <!-- 操作确认对话框 -->
+    <div v-if="showActionDialog" class="dialog-overlay" @click="closeActionDialog">
+      <div class="dialog-content" @click.stop>
+        <h3>{{ actionDialog.title }}</h3>
+        <p>{{ actionDialog.message }}</p>
+        
+        <!-- 输入字段 -->
+        <div v-if="actionDialog.inputs" class="dialog-inputs">
+          <div v-for="input in actionDialog.inputs" :key="input.key" class="input-group">
+            <label>{{ input.label }}</label>
+            <input
+              v-if="input.type === 'text' || input.type === 'number'"
+              :type="input.type"
+              v-model="actionInputs[input.key]"
+              :placeholder="input.placeholder"
+              :required="input.required"
             />
-          </div>
-
-        <!-- 侧边栏 -->
-        <div class="space-y-6">
-          <!-- 任务信息卡片 -->
-          <div class="glass-effect rounded-2xl p-6 border border-neutral-200/50">
-            <h3 class="text-lg font-semibold text-neutral-800 mb-4">任务信息</h3>
-            <div class="space-y-4">
-              <div class="flex justify-between">
-                <span class="text-neutral-600">奖励金额</span>
-                <span class="font-semibold text-green-600">{{ task.reward }} AVAX</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-neutral-600">平台费用</span>
-                <span class="text-neutral-800">{{ task.platformFee }} AVAX</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-neutral-600">竞标押金</span>
-                <span class="text-neutral-800">{{ task.depositAmount }} AVAX</span>
-              </div>
-              <hr class="border-neutral-200">
-              <div class="flex justify-between">
-                <span class="text-neutral-600">竞标期</span>
-                <span class="text-neutral-800">{{ task.biddingPeriod }}小时</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-neutral-600">开发期</span>
-                <span class="text-neutral-800">{{ task.developmentPeriod }}天</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-neutral-600">最大参与者</span>
-                <span class="text-neutral-800">{{ task.maxParticipants || '无限制' }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 雇主信息 -->
-          <div class="glass-effect rounded-2xl p-6 border border-neutral-200/50">
-            <h3 class="text-lg font-semibold text-neutral-800 mb-4">雇主信息</h3>
-            <div class="flex items-center space-x-4 mb-4">
-              <div class="w-12 h-12 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full flex items-center justify-center">
-                <span class="text-white font-bold">{{ (task.employer || task.creator || '').slice(-2).toUpperCase() || '?' }}</span>
-                  </div>
-              <div>
-                <h4 class="font-medium text-neutral-800">{{ formatAddress(task.employer || task.creator) || '加载中...' }}</h4>
-                <p class="text-sm text-neutral-600">发布于 {{ task.createdAt ? formatDate(task.createdAt) : '加载中...' }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- 时间线 -->
-          <div class="glass-effect rounded-2xl p-6 border border-neutral-200/50">
-            <h3 class="text-lg font-semibold text-neutral-800 mb-4">时间线</h3>
-            <div class="space-y-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-                <div>
-                  <p class="font-medium text-neutral-800">任务创建</p>
-                  <p class="text-sm text-neutral-600">{{ formatDate(task.createdAt) }}</p>
-                </div>
-              </div>
-              <div v-if="task.status >= 1" class="flex items-center space-x-3">
-                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <div>
-                  <p class="font-medium text-neutral-800">竞标截止</p>
-                  <p class="text-sm text-neutral-600">{{ getBiddingEndDate() }}</p>
-                </div>
-              </div>
-              <div class="flex items-center space-x-3">
-                <div class="w-3 h-3 rounded-full" :class="task.status >= 2 ? 'bg-yellow-500' : 'bg-gray-300'"></div>
-                <div>
-                  <p class="font-medium text-neutral-800">项目截止</p>
-                  <p class="text-sm text-neutral-600">{{ formatDate(task.deadline) }}</p>
-                </div>
-              </div>
-              <div v-if="task.developmentDeadline" class="flex items-center space-x-3">
-                <div class="w-3 h-3 rounded-full" :class="task.status >= 3 ? 'bg-yellow-500' : 'bg-gray-300'"></div>
-                <div>
-                  <p class="font-medium text-neutral-800">开发截止</p>
-                  <p class="text-sm text-neutral-600">{{ formatDate(task.developmentDeadline) }}</p>
-                </div>
-              </div>
-              <div v-if="task.reviewDeadline" class="flex items-center space-x-3">
-                <div class="w-3 h-3 rounded-full" :class="task.status >= 4 ? 'bg-purple-500' : 'bg-gray-300'"></div>
-                <div>
-                  <p class="font-medium text-neutral-800">评审截止</p>
-                  <p class="text-sm text-neutral-600">{{ formatDate(task.reviewDeadline) }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <select v-else-if="input.type === 'select'" v-model="actionInputs[input.key]">
+              <option v-for="option in input.options" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- 竞标模态框 -->
-    <div v-if="showBidModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold text-neutral-800 mb-6">参与竞标</h3>
-        
-        <div class="mb-6">
-          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-            <p class="text-yellow-800 text-sm">
-              <strong>注意:</strong> 参与竞标需要支付 {{ task.depositAmount }} AVAX 押金，竞标成功后押金将被退还。
-            </p>
-          </div>
-          
-            <div class="mb-4">
-            <label class="block text-sm font-medium text-neutral-700 mb-2">竞标提案</label>
-              <textarea
-              v-model="bidProposal"
-                rows="4"
-              class="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="请详细描述您的实施方案、经验背景和预期交付成果...">
-            </textarea>
-            </div>
-            
-            <div class="mb-4">
-            <label class="block text-sm font-medium text-neutral-700 mb-2">演示链接 (可选)</label>
-              <input
-              v-model="bidDemoUrl"
-                type="url"
-              class="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="https://your-demo-url.com">
-            </div>
-            
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-neutral-700 mb-2">GitHub资料 (可选)</label>
-            <input 
-              v-model="bidGithubProfile"
-              type="url"
-              class="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="https://github.com/your-username">
-                    </div>
-                  </div>
-        
-        <div class="flex space-x-4">
-          <button 
-            @click="showBidModal = false"
-            class="flex-1 bg-neutral-200 text-neutral-800 py-3 rounded-lg font-semibold hover:bg-neutral-300">
-            取消
-          </button>
-          <button 
-            @click="submitBid"
-            :disabled="!bidProposal.trim()"
-            class="flex-1 bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-            支付押金并竞标
-          </button>
-                </div>
-              </div>
-            </div>
-            
-    <!-- 选择中标者模态框 -->
-    <div v-if="showSelectWinnerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <h3 class="text-xl font-bold text-neutral-800 mb-6">选择中标者</h3>
-        
-        <div class="space-y-4 mb-6">
-          <div v-for="bidder in task.bidders.filter(b => b.depositPaid)" :key="bidder.address" 
-               class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 cursor-pointer"
-               :class="selectedWinner === bidder.address ? 'border-primary-500 bg-primary-50' : ''"
-               @click="selectedWinner = bidder.address">
-            <div class="flex items-start justify-between">
-              <div class="flex items-center space-x-3">
-                <input 
-                  type="radio" 
-                  :value="bidder.address" 
-                  v-model="selectedWinner"
-                  class="text-primary-600">
-                <div>
-                  <h4 class="font-medium text-neutral-800">{{ formatAddress(bidder.address) }}</h4>
-                  <p class="text-sm text-neutral-600">{{ formatDate(bidder.timestamp) }}</p>
-                </div>
-              </div>
-            </div>
-            <p class="text-neutral-700 text-sm mt-2">{{ bidder.proposal ? bidder.proposal.slice(0, 100) + '...' : '暂无提案' }}</p>
-          </div>
-        </div>
-        
-        <div class="flex space-x-4">
-              <button
-            @click="showSelectWinnerModal = false"
-            class="flex-1 bg-neutral-200 text-neutral-800 py-3 rounded-lg font-semibold hover:bg-neutral-300">
-                取消
-              </button>
-              <button
-            @click="confirmSelectWinner"
-            :disabled="!selectedWinner"
-            class="flex-1 bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50">
-            确认选择
-              </button>
-            </div>
-      </div>
-    </div>
-
-    <!-- 评审模态框 -->
-    <div v-if="showReviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold text-neutral-800 mb-6">评审成果</h3>
-        
-        <div class="mb-6">
-          <p class="text-neutral-600 mb-4">请仔细评审提交的成果，确认是否符合任务要求。</p>
-          
-          <!-- 项目成果查看按钮 -->
-          <div v-if="task.completeUrl && task.completeUrl.startsWith('ipfs://')" class="mb-4">
-            <button
-              @click="showProjectSubmission"
-              class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center space-x-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-              </svg>
-              <span>📋 查看项目成果</span>
-            </button>
-          </div>
-          
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-neutral-700 mb-2">评审意见 (可选)</label>
-            <textarea 
-              v-model="reviewComment"
-              rows="3"
-              class="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="请输入您的评审意见...">
-            </textarea>
-          </div>
-        </div>
-        
-        <div class="flex space-x-4">
-          <button 
-            @click="showReviewModal = false"
-            class="flex-1 bg-neutral-200 text-neutral-800 py-3 rounded-lg font-semibold hover:bg-neutral-300">
-            取消
-          </button>
-          <button 
-            @click="rejectSubmission"
-            class="flex-1 bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600">
-            拒绝
-          </button>
-          <button 
-            @click="approveSubmission"
-            class="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600">
-            通过
+        <div class="dialog-buttons">
+          <button @click="closeActionDialog" class="cancel-btn">取消</button>
+          <button @click="confirmAction" class="confirm-btn" :disabled="!canConfirmAction">
+            确认
+>>>>>>> ee6116c (chore: push all project files for Move链版本)
           </button>
         </div>
       </div>
     </div>
-
-    <!-- 项目提交查看器 -->
-    <ProjectSubmissionViewer
-      v-if="task.id && showSubmissionViewer"
-      :show="showSubmissionViewer"
-      :task-id="task.id"
-      :submission-hash="submissionHash"
-      @close="showSubmissionViewer = false"
-      @approve="handleSubmissionApprove"
-      @reject="handleSubmissionReject"
-      @nft-created="handleNFTCreated"
-    />
+=
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+<script>
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useWalletStore } from '@/stores/wallet'
-import { useDataStore, TASK_STATUS, getStatusText, getStatusClass, BIDDING_CONFIG } from '@/stores/data'
-import { useIpfsStore } from '@/stores/ipfs'
+import { useWeb3Store } from '@/stores/web3'
+import { storeToRefs } from 'pinia'
 import TaskStatusFlow from '@/components/TaskStatusFlow.vue'
-import ProjectSubmissionViewer from '@/components/ProjectSubmissionViewer.vue'
+import { TASK_STATUS } from '@/constants'
 
-const route = useRoute()
-const router = useRouter()
-const walletStore = useWalletStore()
-const dataStore = useDataStore()
-const ipfsStore = useIpfsStore()
+export default {
+  name: 'TaskDetail',
+  components: {
+    TaskStatusFlow
+  },
+  setup() {
+    const route = useRoute()
+    const router = useRouter()
+    const web3Store = useWeb3Store()
+    const { account: currentUser, isConnected } = storeToRefs(web3Store)
 
-// 响应式数据
-const task = ref({
-  bidders: [],
-  workSubmissions: [],
-  creator: '',
-  winner: '',
-  title: '',
-  description: '',
-  reward: 0,
-  depositAmount: 0,
-  platformFee: 0,
-  status: 0,
-  taskType: 0,
-  requirements: '',
-  githubRequired: false,
-  githubRepo: '',
-  chainlinkVerification: false,
-  attachments: [],
-  participants: 0,
-  maxParticipants: 0,
-  biddingPeriod: 0,
-  developmentPeriod: 0,
-  createdAt: '',
-  deadline: '',
-  developmentDeadline: '',
-  reviewDeadline: '',
-  completeUrl: ''
-})
-const loading = ref(true)
-const error = ref('')
-
-// 模态框状态
-const showBidModal = ref(false)
-const showSelectWinnerModal = ref(false)
-const showReviewModal = ref(false)
-
-// 竞标相关数据
-const bidProposal = ref('')
-const bidDemoUrl = ref('')
-const bidGithubProfile = ref('')
-
-// 选择中标者
-const selectedWinner = ref('')
-
-// 评审相关
-const reviewComment = ref('')
-
-// 项目提交查看相关
-const showSubmissionViewer = ref(false)
-const submissionHash = ref('')
-
-// 项目提交数据
-const submissionData = ref(null)
-
-// 计算属性
-const isCreator = computed(() => {
-  return walletStore.account && task.value.creator && 
-         walletStore.account.toLowerCase() === task.value.creator.toLowerCase()
-})
-
-const canBid = computed(() => {
-  if (!walletStore.account || !task.value.bidders) return false
-  
-  // 检查是否已经竞标
-  const alreadyBidded = task.value.bidders.some(bidder => 
-    bidder.address.toLowerCase() === walletStore.account.toLowerCase()
-  )
-  
-  // 检查是否达到最大参与人数
-  const maxReached = task.value.maxParticipants && 
-                     task.value.participants >= task.value.maxParticipants
-  
-  // 检查是否过了竞标截止时间
-  const deadlinePassed = new Date() > new Date(task.value.deadline)
-  
-  return !alreadyBidded && !maxReached && !deadlinePassed && !isCreator.value
-})
-
-// 方法
-const loadTask = async () => {
-  try {
-    loading.value = true
-    const taskId = parseInt(route.params.id)
+    // 响应式数据
+    const task = ref(null)
+    const participants = ref([])
+    const loading = ref(false)
+    const error = ref('')
+    const platformFee = ref(0)
+    const availableActions = ref([])
+    const actionLoading = ref(false)
+    const currentAction = ref('')
+    const showDebug = ref(false)
     
-    console.log('🔍 加载任务详情，ID:', taskId)
-    
-    // 使用新的fetchTaskById方法，优先从IPFS获取
-    const foundTask = await dataStore.fetchTaskById(taskId)
-    
-    if (!foundTask) {
-      error.value = '任务不存在'
-      return
-    }
-    
-    task.value = foundTask
-    console.log('✅ 任务详情加载成功:', task.value.title)
-    
-    // 加载项目提交数据（如果有）
-    await loadSubmissionData()
-  } catch (err) {
-    console.error('❌ 加载任务失败:', err)
-    error.value = err.message || '加载任务失败'
-  } finally {
-    loading.value = false
-  }
-}
-
-const startBidding = async () => {
-  try {
-    if (!walletStore.account) {
-      await walletStore.connectWallet()
-    }
-    
-    // 模拟调用智能合约开始竞标
-    console.log('开始竞标，任务ID:', task.value.id)
-    
-    // 更新任务状态
-    task.value.status = TASK_STATUS.BIDDING
-    await dataStore.updateTask(task.value.id, { status: TASK_STATUS.BIDDING })
-    
-    // 显示成功消息
-    alert('竞标已开始！')
-    
-  } catch (err) {
-    console.error('开始竞标失败:', err)
-    alert('开始竞标失败: ' + err.message)
-  }
-}
-
-const submitBid = async () => {
-  try {
-    if (!walletStore.account) {
-      await walletStore.connectWallet()
-    }
-    
-    if (!bidProposal.value.trim()) {
-      alert('请填写竞标提案')
-    return
-  }
-
-    // 模拟支付押金和提交竞标
-    console.log('提交竞标:', {
-      taskId: task.value.id,
-      bidder: walletStore.account,
-      proposal: bidProposal.value,
-      demoUrl: bidDemoUrl.value,
-      githubProfile: bidGithubProfile.value,
-      depositAmount: task.value.depositAmount
+    // 对话框状态
+    const showActionDialog = ref(false)
+    const actionDialog = reactive({
+      title: '',
+      message: '',
+      action: null,
+      inputs: null
     })
-    
-    // 添加竞标者到任务
-    const newBidder = {
-      address: walletStore.account,
-      proposal: bidProposal.value,
-      demoUrl: bidDemoUrl.value,
-      githubProfile: bidGithubProfile.value,
-      timestamp: new Date().toISOString(),
-      depositPaid: true,
-      depositAmount: task.value.depositAmount
+    const actionInputs = reactive({})
+
+    // 计算属性
+    const contractAddress = computed(() => web3Store.contractAddress)
+    const taskId = computed(() => route.params.id)
+
+    // 方法
+    const loadTask = async () => {
+      if (!taskId.value) {
+        error.value = '无效的任务ID'
+        return
+      }
+
+      loading.value = true
+      error.value = ''
+
+      try {
+        console.log('加载任务详情:', taskId.value)
+        
+        // 从合约获取任务
+        const taskData = await web3Store.getTaskById(taskId.value)
+        if (!taskData) {
+          error.value = '任务不存在'
+          return
+        }
+
+        task.value = taskData
+        console.log('任务详情加载成功:', taskData)
+
+        // 加载参与者
+        await loadParticipants()
+        
+        // 计算平台费用
+        if (taskData.reward) {
+          platformFee.value = await web3Store.calculatePlatformFee(taskData.reward)
+        }
+
+        // 获取可用操作
+        await updateAvailableActions()
+
+      } catch (err) {
+        console.error('加载任务详情失败:', err)
+        error.value = err.message || '加载任务详情失败'
+      } finally {
+        loading.value = false
+      }
     }
-    
-    // 确保bidders数组存在
-    if (!task.value.bidders) {
-      task.value.bidders = []
+
+    const loadParticipants = async () => {
+      if (!task.value) return
+
+      try {
+        const participantList = await web3Store.getTaskParticipants(task.value.id)
+        participants.value = participantList || []
+        console.log('参与者列表:', participants.value)
+      } catch (err) {
+        console.error('加载参与者失败:', err)
+      }
     }
-    
-    task.value.bidders.push(newBidder)
-    task.value.participants = task.value.bidders.length
-    
-    await dataStore.updateTask(task.value.id, {
-      bidders: task.value.bidders,
-      participants: task.value.participants
-    })
-    
-    // 重置表单
-    bidProposal.value = ''
-    bidDemoUrl.value = ''
-    bidGithubProfile.value = ''
-    showBidModal.value = false
-    
-    alert('竞标提交成功！押金已支付。')
-    
-  } catch (err) {
-    console.error('提交竞标失败:', err)
-    alert('提交竞标失败: ' + err.message)
-  }
-}
 
-const selectWinner = async (winnerAddress) => {
-  selectedWinner.value = winnerAddress
-  showSelectWinnerModal.value = true
-}
+    const updateAvailableActions = async () => {
+      if (!task.value || !currentUser.value) {
+        availableActions.value = []
+        return
+      }
 
-const confirmSelectWinner = async () => {
-  try {
-    if (!selectedWinner.value) {
-      alert('请选择中标者')
-      return
+      try {
+        const actions = await web3Store.getAvailableActions(task.value.id, currentUser.value)
+        availableActions.value = actions || []
+        console.log('可用操作:', actions)
+      } catch (err) {
+        console.error('获取可用操作失败:', err)
+        availableActions.value = []
+      }
     }
-    
-    // 模拟调用智能合约选择中标者
-    console.log('选择中标者:', selectedWinner.value)
-    
-    // 更新任务状态和中标者
-    task.value.status = TASK_STATUS.IN_PROGRESS
-    task.value.winner = selectedWinner.value
-    
-    // 标记中标者
-    task.value.bidders.forEach(bidder => {
-      bidder.selected = bidder.address === selectedWinner.value
-    })
-    
-    await dataStore.updateTask(task.value.id, {
-      status: TASK_STATUS.IN_PROGRESS,
-      winner: selectedWinner.value,
-      bidders: task.value.bidders
-    })
-    
-    showSelectWinnerModal.value = false
-    selectedWinner.value = ''
-    
-    alert('中标者选择成功！任务进入开发阶段。')
-    
-  } catch (err) {
-    console.error('选择中标者失败:', err)
-    alert('选择中标者失败: ' + err.message)
-  }
-}
 
-const approveSubmission = async () => {
-  try {
-    // 模拟雇主确认任务完成
-    console.log('批准任务完成')
-    
-    task.value.status = TASK_STATUS.COMPLETED
-    task.value.completedAt = new Date().toISOString()
-    
-    await dataStore.updateTask(task.value.id, {
-      status: TASK_STATUS.COMPLETED,
-      completedAt: task.value.completedAt
-    })
-    
-    showReviewModal.value = false
-    reviewComment.value = ''
-    
-    alert('任务已完成！奖励将发放给中标者。')
-    
-  } catch (err) {
-    console.error('批准任务失败:', err)
-    alert('批准任务失败: ' + err.message)
-  }
-}
+    const executeAction = async (action) => {
+      if (!action || actionLoading.value) return
 
-const rejectSubmission = async () => {
-  try {
-    // 模拟雇主拒绝任务，进入争议期
-    console.log('拒绝任务成果')
-    
-    task.value.status = TASK_STATUS.PENDING_DISPUTE
-    task.value.disputeDeadline = new Date(Date.now() + BIDDING_CONFIG.DISPUTE_PERIOD * 24 * 60 * 60 * 1000).toISOString()
-    
-    await dataStore.updateTask(task.value.id, {
-      status: TASK_STATUS.PENDING_DISPUTE,
-      disputeDeadline: task.value.disputeDeadline
-    })
-    
-    showReviewModal.value = false
-    reviewComment.value = ''
-    
-    alert('任务成果已拒绝，进入争议期。中标者可以申请仲裁。')
-    
-  } catch (err) {
-    console.error('拒绝任务失败:', err)
-    alert('拒绝任务失败: ' + err.message)
-  }
-}
+      // 检查是否需要输入
+      if (action.inputs && action.inputs.length > 0) {
+        showActionConfirmDialog(action)
+        return
+      }
 
-const handleActionCompleted = (event) => {
-  console.log('任务操作完成:', event)
-  // 刷新任务数据
-  loadTask()
-}
-
-const showProjectSubmission = () => {
-  if (task.value.completeUrl && task.value.completeUrl.startsWith('ipfs://')) {
-    submissionHash.value = task.value.completeUrl.replace('ipfs://', '')
-    showSubmissionViewer.value = true
-  } else {
-    alert('暂无项目成果数据或数据格式不正确')
-  }
-}
-
-const handleSubmissionApprove = (data) => {
-  console.log('雇主通过项目成果:', data)
-  showSubmissionViewer.value = false
-  showReviewModal.value = false
-  
-  // 调用原有的通过逻辑
-  approveSubmission()
-}
-
-const handleSubmissionReject = (data) => {
-  console.log('雇主拒绝项目成果:', data)
-  showSubmissionViewer.value = false
-  showReviewModal.value = false
-  
-  // 调用原有的拒绝逻辑
-  rejectSubmission()
-}
-
-const handleNFTCreated = (nftData) => {
-  console.log('NFT创建成功（从雇主端）:', nftData)
-  alert(`🎉 项目已成功NFT化！\nToken ID: ${nftData.tokenId}\nIPFS Hash: ${nftData.ipfsHash}`)
-}
-
-// 加载项目提交数据
-const loadSubmissionData = async () => {
-  try {
-    submissionData.value = null
-    if (task.value.completeUrl && task.value.completeUrl.startsWith('ipfs://')) {
-      const hash = task.value.completeUrl.replace('ipfs://', '')
-      console.log('🔍 获取项目提交数据，hash:', hash)
-      submissionData.value = await ipfsStore.getProjectSubmission(hash)
-      console.log('✅ 提交数据获取成功')
+      // 直接执行操作
+      await performAction(action)
     }
-  } catch (err) {
-    console.error('获取提交数据失败:', err)
-  }
-}
 
-// 监听completeUrl变化
-watch(() => task.value.completeUrl, () => {
-  loadSubmissionData()
-})
+    const showActionConfirmDialog = (action) => {
+      actionDialog.title = action.label
+      actionDialog.message = action.description || `确认要执行 ${action.label} 操作吗？`
+      actionDialog.action = action
+      actionDialog.inputs = action.inputs
 
-// 工具方法
-const formatAddress = (address) => {
-  if (!address) return ''
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
+      // 清空输入
+      Object.keys(actionInputs).forEach(key => {
+        delete actionInputs[key]
+      })
 
-const formatDate = (dateString) => {
-  if (!dateString) return ''
-  return new Date(dateString).toLocaleString('zh-CN')
-}
+      // 初始化输入字段
+      if (action.inputs) {
+        action.inputs.forEach(input => {
+          actionInputs[input.key] = input.default || ''
+        })
+      }
 
-const formatDeadline = () => {
-  if (!task.value.deadline) return '未设置'
-  const deadline = new Date(task.value.deadline)
-  const now = new Date()
-  const diff = deadline - now
-  
-  if (diff < 0) return '已截止'
-  
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-  
-  if (days > 0) return `${days}天${hours}小时`
-  return `${hours}小时`
-}
+      showActionDialog.value = true
+    }
 
-const getTypeText = (taskType) => {
-  const types = {
-    0: '开发任务',
-    1: '设计任务',
-    2: '测试任务',
-    3: '其他任务'
-  }
-  return types[taskType] || '未知类型'
-}
+    const closeActionDialog = () => {
+      showActionDialog.value = false
+      actionDialog.action = null
+      actionDialog.inputs = null
+    }
 
-const getBiddingEndDate = () => {
-  if (!task.value.createdAt || !task.value.biddingPeriod) return '未设置'
-  
-  try {
-    const createdAt = new Date(task.value.createdAt)
-    const biddingPeriodHours = parseInt(task.value.biddingPeriod) || 72
-    const biddingEndTime = new Date(createdAt.getTime() + biddingPeriodHours * 60 * 60 * 1000)
-    
-    return biddingEndTime.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    const confirmAction = async () => {
+      if (!actionDialog.action) return
+
+      // 验证输入
+      if (actionDialog.inputs) {
+        for (const input of actionDialog.inputs) {
+          if (input.required && !actionInputs[input.key]) {
+            alert(`请填写 ${input.label}`)
+            return
+          }
+        }
+      }
+
+      closeActionDialog()
+      await performAction(actionDialog.action, actionInputs)
+    }
+
+    const performAction = async (action, inputs = {}) => {
+      actionLoading.value = true
+      currentAction.value = action.type
+
+      try {
+        console.log('执行操作:', action.type, inputs)
+        
+        const result = await web3Store.executeTaskAction(task.value.id, action.type, inputs)
+        
+        if (result.success) {
+          // 操作成功，重新加载任务
+          await loadTask()
+          
+          // 显示成功消息
+          alert(`${action.label} 操作成功！`)
+        } else {
+          throw new Error(result.error || '操作失败')
+        }
+
+      } catch (err) {
+        console.error('执行操作失败:', err)
+        alert(`${action.label} 失败: ${err.message}`)
+      } finally {
+        actionLoading.value = false
+        currentAction.value = ''
+      }
+    }
+
+    const handleActionExecuted = async (actionType) => {
+      console.log('操作执行完成:', actionType)
+      await loadTask()
+    }
+
+    const handleStatusUpdated = async (newStatus) => {
+      console.log('任务状态更新:', newStatus)
+      if (task.value) {
+        task.value.status = newStatus
+        await updateAvailableActions()
+      }
+    }
+
+    // 格式化方法
+    const formatAddress = (address) => {
+      if (!address) return ''
+      return `${address.slice(0, 6)}...${address.slice(-4)}`
+    }
+
+    const formatDate = (timestamp) => {
+      if (!timestamp) return ''
+      const date = new Date(timestamp * 1000)
+      return date.toLocaleString('zh-CN')
+    }
+
+    const formatDescription = (description) => {
+      if (!description) return ''
+      return description.replace(/\n/g, '<br>')
+    }
+
+    const getStatusClass = (status) => {
+      const statusMap = {
+        [TASK_STATUS.CREATED]: 'status-created',
+        [TASK_STATUS.BIDDING]: 'status-bidding',
+        [TASK_STATUS.IN_PROGRESS]: 'status-progress',
+        [TASK_STATUS.SUBMITTED]: 'status-submitted',
+        [TASK_STATUS.COMPLETED]: 'status-completed',
+        [TASK_STATUS.CANCELLED]: 'status-cancelled',
+        [TASK_STATUS.DISPUTED]: 'status-disputed'
+      }
+      return statusMap[status] || 'status-unknown'
+    }
+
+    const getStatusText = (status) => {
+      const statusMap = {
+        [TASK_STATUS.CREATED]: '已创建',
+        [TASK_STATUS.BIDDING]: '竞标中',
+        [TASK_STATUS.IN_PROGRESS]: '进行中',
+        [TASK_STATUS.SUBMITTED]: '已提交',
+        [TASK_STATUS.COMPLETED]: '已完成',
+        [TASK_STATUS.CANCELLED]: '已取消',
+        [TASK_STATUS.DISPUTED]: '争议中'
+      }
+      return statusMap[status] || '未知状态'
+    }
+
+    const getExplorerUrl = (txHash) => {
+      return `https://testnet.snowtrace.io/tx/${txHash}`
+    }
+
+    const canConfirmAction = computed(() => {
+      if (!actionDialog.inputs) return true
+      
+      return actionDialog.inputs.every(input => {
+        if (input.required) {
+          return actionInputs[input.key] && actionInputs[input.key].toString().trim()
+        }
+        return true
+      })
     })
-  } catch (error) {
-    console.warn('计算竞标截止时间失败:', error)
-    return '计算失败'
+
+    // 监听路由变化
+    watch(() => route.params.id, (newId) => {
+      if (newId) {
+        loadTask()
+      }
+    })
+
+    // 监听用户连接状态
+    watch(isConnected, (connected) => {
+      if (connected) {
+        updateAvailableActions()
+      }
+    })
+
+    // 生命周期
+    onMounted(() => {
+      loadTask()
+      
+      // 开发模式显示调试信息
+      showDebug.value = process.env.NODE_ENV === 'development'
+    })
+
+    return {
+      // 数据
+      task,
+      participants,
+      loading,
+      error,
+      platformFee,
+      availableActions,
+      actionLoading,
+      currentAction,
+      showDebug,
+      currentUser,
+      contractAddress,
+      
+      // 对话框
+      showActionDialog,
+      actionDialog,
+      actionInputs,
+      canConfirmAction,
+      
+      // 方法
+      loadTask,
+      executeAction,
+      closeActionDialog,
+      confirmAction,
+      handleActionExecuted,
+      handleStatusUpdated,
+      formatAddress,
+      formatDate,
+      formatDescription,
+      getStatusClass,
+      getStatusText,
+      getExplorerUrl
+    }
   }
 }
-
-// 生命周期
-onMounted(() => {
-  loadTask()
-})
 </script>
 
 <style scoped>
-.glass-effect {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+.task-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-.prose {
-  max-width: none;
+.loading-container, .error-container, .not-found {
+  text-align: center;
+  padding: 60px 20px;
 }
 
-.prose p {
-    margin-bottom: 1rem;
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
 }
-</style>
+
+.loading-spinner.small {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  margin: 0 8px 0 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message {
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: 8px;
+  padding: 20px;
+  color: #c53030;
+}
+
+.retry-btn, .back-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.retry-btn:hover, .back-btn:hover {
+  background: #0056b3;
+}
+
+.task-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.task-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.task-title-section h1 {
+  margin: 0 0 15px 0;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.task-meta {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.task-meta span {
+  background: rgba(255,255,255,0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.task-status {
+  font-weight: 600;
+}
+
+.status-created { background-color: #e2e8f0 !important; color: #4a5568 !important; }
+.status-bidding { background-color: #fef5e7 !important; color: #d69e2e !important; }
+.status-progress { background-color: #e6fffa !important; color: #319795 !important; }
+.status-submitted { background-color: #e6f3ff !important; color: #3182ce !important; }
+.status-completed { background-color: #f0fff4 !important; color: #38a169 !important; }
+.status-cancelled { background-color: #fed7d7 !important; color: #e53e3e !important; }
+.status-disputed { background-color: #ffeaa7 !important; color: #d63031 !important; }
+
+.task-reward {
+  text-align: right;
+}
+
+.reward-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.currency {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.platform-fee {
+  opacity: 0.8;
+}
+
+.task-description, .task-requirements, .task-status-section, 
+.participants-section, .action-buttons {
+  padding: 30px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.task-description h3, .task-requirements h3, .task-status-section h3,
+.participants-section h3, .action-buttons h3 {
+  margin: 0 0 20px 0;
+  color: #2d3748;
+  font-size: 1.3rem;
+}
+
+.description-content {
+  line-height: 1.8;
+  color: #4a5568;
+}
+
+.task-requirements ul {
+  list-style: none;
+  padding: 0;
+}
+
+.task-requirements li {
+  padding: 8px 0;
+  border-bottom: 1px solid #f7fafc;
+  position: relative;
+  padding-left: 20px;
+}
+
+.task-requirements li:before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #38a169;
+  font-weight: bold;
+}
+
+.participants-list {
+  display: grid;
+  gap: 15px;
+}
+
+.participant-card {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.participant-card:hover {
+  background: #edf2f7;
+  transform: translateY(-2px);
+}
+
+.participant-card.winner {
+  background: linear-gradient(135deg, #fef5e7, #f6e05e);
+  border: 2px solid #d69e2e;
+}
+
+.participant-info {
+  flex: 1;
+}
+
+.participant-address {
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 5px;
+}
+
+.participant-bid, .participant-time {
+  font-size: 0.9rem;
+  color: #718096;
+}
+
+.winner-badge, .bidding-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.winner-badge {
+  background: #38a169;
+  color: white;
+}
+
+.bidding-badge {
+  background: #3182ce;
+  color: white;
+}
+
+.task-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 30px;
+}
+
+.detail-card {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.detail-card h4 {
+  margin: 0 0 15px 0;
+  color: #2d3748;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.value {
+  color: #2d3748;
+  word-break: break-all;
+}
+
+.contract-address, .ipfs-hash {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.tx-link {
+  color: #3182ce;
+  text-decoration: none;
+}
+
+.tx-link:hover {
+  text-decoration: underline;
+}
+
+.buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.action-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-btn.participate {
+  background: #3182ce;
+  color: white;
+}
+
+.action-btn.start-bidding {
+  background: #d69e2e;
+  color: white;
+}
+
+.action-btn.select-winner {
+  background: #38a169;
+  color: white;
+}
+
+.action-btn.submit-work {
+  background: #805ad5;
+  color: white;
+}
+
+.action-btn.confirm {
+  background: #38a169;
+  color: white;
+}
+
+.action-btn.dispute {
+  background: #e53e3e;
+  color: white;
+}
+
+.action-btn.cancel {
+  background: #718096;
+  color: white;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.debug-section {
+  padding: 30px;
+  background: #1a202c;
+  color: #e2e8f0;
+}
+
+.debug-content pre {
+  background: #2d3748;
+  padding: 20px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-content h3 {
+  margin: 0 0 15px 0;
+  color: #2d3748;
+}
+
+.dialog-inputs {
+  margin: 20px 0;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.input-group input, .input-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.input-group input:focus, .input-group select:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49,130,206,0.1);
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.cancel-btn, .confirm-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.cancel-btn {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.confirm-btn {
+  background: #3182ce;
+  color: white;
+}
+
+.confirm-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.cancel-btn:hover {
+  background: #cbd5e0;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #2c5282;
+}
+
+@media (max-width: 768px) {
+  .task-detail {
+    padding: 10px;
+  }
+  
+  .task-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .task-meta {
+    justify-content: flex-start;
+  }
+  
+  .task-reward {
+    text-align: left;
+  }
+  
+  .task-details-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .buttons-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .participant-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+</style> 
+>>>>>>> ee6116c (chore: push all project files for Move链版本)
