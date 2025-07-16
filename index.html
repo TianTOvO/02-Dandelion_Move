@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>蒲公英任务平台</title>
+    
+    <!-- 早期polyfill设置 -->
+    <script>
+      // 确保全局变量在任何模块加载之前就存在
+      window.global = window.global || window;
+      window.process = window.process || { env: {}, browser: true };
+      
+      // 为buffer模块预留空间
+      window.buffer = window.buffer || {};
+      
+      // 确保globalThis可用
+      if (typeof globalThis === 'undefined') {
+        window.globalThis = window;
+      }
+      
+      console.log('🔧 早期polyfill设置完成');
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
