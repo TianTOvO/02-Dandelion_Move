@@ -1,0 +1,64 @@
+---
+compiled_package_info:
+  package_name: MoveContracts
+  address_alias_instantiation:
+    Extensions: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_framework: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_fungible_asset: 000000000000000000000000000000000000000000000000000000000000000a
+    aptos_std: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_token: "0000000000000000000000000000000000000000000000000000000000000003"
+    core_resources: 000000000000000000000000000000000000000000000000000000000a550c18
+    dandelion: a1b3e0179d015222a7dfae11a029f96b173f0bf5b4747fd6c2d057dead2b921b
+    devnet: "0000000000000000000000000000000000000000000000000000000000000001"
+    mainnet: "0000000000000000000000000000000000000000000000000000000000000001"
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    testnet: a1b3e0179d015222a7dfae11a029f96b173f0bf5b4747fd6c2d057dead2b921b
+    vm: "0000000000000000000000000000000000000000000000000000000000000000"
+    vm_reserved: "0000000000000000000000000000000000000000000000000000000000000000"
+  source_digest: 6B58D461B49D3A3663F78200092F2B39A9934EB4EAC477AC43B8ADDE34E72CE5
+  build_flags:
+    dev_mode: false
+    test_mode: false
+    override_std: ~
+    generate_docs: false
+    generate_abis: false
+    generate_move_model: true
+    full_model_generation: true
+    install_dir: ~
+    force_recompilation: false
+    additional_named_addresses:
+      dandelion: a1b3e0179d015222a7dfae11a029f96b173f0bf5b4747fd6c2d057dead2b921b
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: false
+    compiler_config:
+      bytecode_version: 7
+      known_attributes:
+        - bytecode_instruction
+        - deprecated
+        - event
+        - expected_failure
+        - "fmt::skip"
+        - legacy_entry_fun
+        - "lint::allow_unsafe_randomness"
+        - "lint::skip"
+        - module_lock
+        - "mutation::skip"
+        - native_interface
+        - persistent
+        - randomness
+        - resource_group
+        - resource_group_member
+        - test
+        - test_only
+        - verify_only
+        - view
+      skip_attribute_checks: false
+      compiler_version: V2_0
+      language_version: "2.1"
+      experiments:
+        - optimize=on
+dependencies:
+  - AptosFramework
+  - AptosStdlib
+  - MoveStdlib
+bytecode_deps: []

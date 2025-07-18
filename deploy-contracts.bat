@@ -1,82 +1,121 @@
 @echo off
 chcp 65001 >nul
-title Dandelion智能合约部署
+setlocal enabledelayedexpansion
 
-echo.
-echo =====================================================
-echo 🔗 Dandelion智能合约部署脚本
-echo =====================================================
-echo.
+echo 🚀 开始部署 Dandelion Move 合约...
 
-echo 📋 检查环境...
-if not exist contracts\.env (
-    echo ❌ 未找到.env配置文件
-    echo.
-    echo 请在contracts目录下创建.env文件，包含以下内容:
-    echo PRIVATE_KEY=your_private_key_here
-    echo SNOWTRACE_API_KEY=your_api_key_here
-    echo.
-    echo ⚠️  重要提醒:
-    echo - 私钥不要包含0x前缀
-    echo - 确保账户有足够的AVAX用于部署
-    echo - 建议使用测试账户的私钥
-    echo.
+REM 检查是否在正确的目录
+if not exist "Move.toml" (
+    echo ❌ 错误: 请在 MoveContracts 目录下运行此脚本
+    pause
+    exit /b 1
+)
+
+REM 检查 Aptos CLI
+aptos --version >nul 2>&1
+if errorlevel 1 (
+    echo ❌ 错误: 未找到 Aptos CLI，请先安装
+    echo 安装命令: curl -fsSL "https://aptos.dev/scripts/install_cli.py" ^| python3
+    pause
+    exit /b 1
+)
+
+echo ✅ Aptos CLI 已安装
+
+REM 检查配置文件
+if not exist ".aptos\config.yaml" (
+    echo ❌ 错误: 未找到 .aptos\config.yaml 配置文件
     pause
     exit /b 1
 )
 
 echo ✅ 配置文件检查通过
 
-echo.
-echo 🔧 准备部署...
-cd contracts
-
-echo 正在编译智能合约...
-npm run compile
-if %errorlevel% neq 0 (
+REM 步骤1: 编译合约
+echo 📦 步骤1: 编译合约...
+aptos move compile --profile newaddress
+if errorlevel 1 (
     echo ❌ 合约编译失败
     pause
     exit /b 1
 )
-
 echo ✅ 合约编译成功
 
-echo.
-echo 🚀 部署到Avalanche Fuji测试网...
-echo 请稍等，部署过程可能需要几分钟...
-echo.
-
-npm run deploy:fuji
-if %errorlevel% neq 0 (
-    echo ❌ 合约部署失败
-    echo.
-    echo 可能的原因:
-    echo 1. 私钥配置错误
-    echo 2. 账户AVAX余额不足
-    echo 3. 网络连接问题
-    echo.
+REM 步骤2: 发布合约
+echo 📤 步骤2: 发布合约到测试网...
+aptos move publish --profile newaddress --named-addresses dandelion=0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9
+if errorlevel 1 (
+    echo ❌ 合约发布失败
     pause
     exit /b 1
 )
+echo ✅ 合约发布成功
+
+REM 步骤3: 验证部署
+echo 🔍 步骤3: 验证部署...
+echo 📋 检查账户信息:
+aptos account list --profile newaddress
+
+echo 📋 检查部署的模块:
+aptos account list --profile newaddress --query modules
+
+REM 步骤4: 初始化合约
+echo 🔧 步骤4: 初始化合约...
+
+echo   初始化 TaskFactory...
+aptos move run --profile newaddress --function-id "0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9::TaskFactory::init"
+if errorlevel 1 (
+    echo ⚠️  TaskFactory 初始化失败，可能已经初始化过
+)
+
+echo   初始化 BiddingSystem...
+aptos move run --profile newaddress --function-id "0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9::BiddingSystem::init" --args u64:1000000
+if errorlevel 1 (
+    echo ⚠️  BiddingSystem 初始化失败，可能已经初始化过
+)
+
+echo   初始化 Escrow...
+aptos move run --profile newaddress --function-id "0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9::Escrow::init"
+if errorlevel 1 (
+    echo ⚠️  Escrow 初始化失败，可能已经初始化过
+)
+
+echo   初始化 DisputeDAO...
+aptos move run --profile newaddress --function-id "0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9::DisputeDAO::init" --args u64:1000000 u64:3 u64:86400
+if errorlevel 1 (
+    echo ⚠️  DisputeDAO 初始化失败，可能已经初始化过
+)
+
+echo   初始化 TaskStorage...
+aptos move run --profile newaddress --function-id "0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9::TaskStorage::init"
+if errorlevel 1 (
+    echo ⚠️  TaskStorage 初始化失败，可能已经初始化过
+)
+
+echo ✅ 所有合约初始化完成
+
+REM 步骤5: 最终验证
+echo 🔍 步骤5: 最终验证...
+echo 📋 检查账户资源:
+aptos account list --profile newaddress --query resources
+
+echo 📋 测试合约功能...
+aptos move view --profile newaddress --function-id "0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9::TaskFactory::view_get_all_tasks"
 
 echo.
-echo =====================================================
-echo 🎉 智能合约部署成功！
-echo =====================================================
+echo 🎉 部署完成！
 echo.
-echo ✅ 所有合约已部署到Avalanche Fuji测试网
-echo ✅ 配置文件已自动生成: frontend/src/config/contracts.js
-echo ✅ 前端应用已自动配置合约地址
+echo 📋 部署信息:
+echo    合约地址: 0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9
+echo    网络: Aptos 测试网
+echo    模块: TaskFactory, BiddingSystem, Escrow, DisputeDAO, TaskStorage
 echo.
-echo 🔍 验证部署:
-echo 1. 查看Snowtrace浏览器: https://testnet.snowtrace.io/
-echo 2. 搜索您的钱包地址查看交易记录
-echo 3. 验证合约地址是否正确
+echo 🔗 查看合约:
+echo    https://explorer.aptoslabs.com/account/0x87315ce5564346fa199d58c2160cf45d8e73a589b6bfb02f444f9c283e56f5f9?network=testnet
 echo.
-echo 📱 下一步:
-echo 1. 重启前端开发服务器
-echo 2. 在MetaMask中确认网络设置
-echo 3. 开始测试平台功能
-echo =====================================================
-
+echo 📝 下一步:
+echo    1. 更新前端配置文件
+echo    2. 启动前端服务
+echo    3. 测试合约功能
+echo.
 pause 

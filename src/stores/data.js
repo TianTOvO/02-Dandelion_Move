@@ -48,7 +48,7 @@ export const getStatusText = (status) => {
   const statusTexts = {
     0: '已创建',
     1: '竞标中',
-    2: '开发中', 
+    2: '开发中',
     3: '待雇主确认',
     4: '已完成',
     5: '争议中',
@@ -115,7 +115,7 @@ export const frontendTypeToContract = (frontendType) => {
     0: 'Other',
     1: 'web3',
     2: 'UI/UX',
-    3: 'Market Promotion', 
+    3: 'Market Promotion',
     4: 'Content Production',
     5: 'Data Analytics'
   }
@@ -130,11 +130,11 @@ export const useDataStore = defineStore('data', {
     disputes: [],
     bids: {},
     userProfiles: {},
-    
+
     // 加载状态
     loading: false,
     error: null,
-    
+
     // 数据统计
     stats: {
       totalTasks: 0,
@@ -188,7 +188,7 @@ export const useDataStore = defineStore('data', {
     // 获取用户发布的任务
     getTasksByCreator: (state) => (creatorAddress) => {
       if (!creatorAddress) return []
-      return state.tasks.filter(task => 
+      return state.tasks.filter(task =>
         task.creator.toLowerCase() === creatorAddress.toLowerCase()
       )
     },
@@ -198,14 +198,14 @@ export const useDataStore = defineStore('data', {
       if (!participantAddress) return []
       return state.tasks.filter(task => {
         // 检查是否在竞标者列表中
-        const isBidder = task.bidders && task.bidders.some(bidder => 
+        const isBidder = task.bidders && task.bidders.some(bidder =>
           bidder.address.toLowerCase() === participantAddress.toLowerCase()
         )
-        
+
         // 检查是否是中标者
-        const isWinner = task.winner && 
+        const isWinner = task.winner &&
           task.winner.toLowerCase() === participantAddress.toLowerCase()
-        
+
         return isBidder || isWinner
       })
     },
@@ -222,7 +222,7 @@ export const useDataStore = defineStore('data', {
 
     // 获取需要仲裁的任务
     getDisputedTasks: (state) => {
-      return state.tasks.filter(task => 
+      return state.tasks.filter(task =>
         task.status === TASK_STATUS.DISPUTED || task.status === TASK_STATUS.PENDING_DISPUTE_PERIOD
       )
     }
@@ -232,13 +232,13 @@ export const useDataStore = defineStore('data', {
     // 初始化数据 - 优先从合约加载，然后从IPFS补充
     async initializeData() {
       if (this.initialized) return
-      
+
       console.log('🚀 开始初始化数据存储...')
-      
+
       try {
         // 1. 检查Web3连接状态
         const web3Store = useWeb3Store()
-        
+
         if (web3Store.isConnected && !web3Store.contractService) {
           console.log('🔗 钱包已连接但合约服务未初始化，正在初始化...')
           await web3Store.initializeContracts()
@@ -254,17 +254,17 @@ export const useDataStore = defineStore('data', {
           console.log('📝 合约服务不可用，初始化为空数据')
           this.tasks = []
         }
-        
+
         this.initialized = true
         this.updateStats()
-        
+
         console.log('✅ 数据初始化完成:', {
           tasks: this.tasks.length,
           users: Object.keys(this.users).length,
           arbitrators: this.arbitrators?.length || 0,
           contractService: !!web3Store.contractService
         })
-        
+
       } catch (error) {
         console.error('❌ 数据初始化失败:', error)
         this.error = '数据初始化失败: ' + error.message
@@ -278,18 +278,18 @@ export const useDataStore = defineStore('data', {
     // 获取所有任务 - 只从合约获取
     async getAllTasks() {
       console.log('📋 获取所有任务数据...')
-      
+
       // 检查合约服务是否可用
       const web3Store = useWeb3Store()
-      if (!web3Store.contractService) {
-        console.log('⚠️ 合约服务不可用，返回空任务列表')
+      if (!web3Store.aptosContractService) {
+        console.log('⚠️ Aptos合约服务不可用，返回空任务列表')
         this.tasks = []
         return this.tasks
       }
-      
+
       // 直接从合约获取任务数据
       await this.loadTasksFromContract()
-      
+
       console.log(`✅ 返回 ${this.tasks.length} 个任务`)
       return this.tasks
     },
@@ -298,34 +298,34 @@ export const useDataStore = defineStore('data', {
     async fetchTaskById(taskId) {
       try {
         console.log('🔍 获取任务详情，ID:', taskId)
-        
+
         // 首先从本地缓存查找
         let task = this.tasks.find(t => t.id === parseInt(taskId))
-        
+
         if (task) {
           console.log('✅ 从本地缓存获取任务:', task.title)
           return task
         }
-        
+
         // 如果本地没有，从合约获取
         console.log('📡 本地缓存未找到，从合约获取任务数据...')
-        
-        if (!useWeb3Store().contractService) {
-          console.warn('⚠️ 合约服务未初始化')
+
+        if (!useWeb3Store().aptosContractService) {
+          console.warn('⚠️ Aptos合约服务未初始化')
           return null
         }
-        
+
         // 从合约获取单个任务
-        const contractTask = await useWeb3Store().contractService.getTaskById(taskId)
-        
+        const contractTask = await useWeb3Store().aptosContractService.getTask(taskId)
+
         if (!contractTask) {
           console.warn('⚠️ 合约中未找到任务:', taskId)
           return null
         }
-        
+
         // 格式化任务数据
         const formattedTask = await this.formatTaskFromContract(contractTask)
-        
+
         // 添加到本地缓存
         const existingIndex = this.tasks.findIndex(t => t.id === formattedTask.id)
         if (existingIndex >= 0) {
@@ -333,10 +333,10 @@ export const useDataStore = defineStore('data', {
         } else {
           this.tasks.push(formattedTask)
         }
-        
+
         console.log('✅ 任务数据获取并缓存成功:', formattedTask.title)
         this.updateStats()
-        
+
         return formattedTask
       } catch (error) {
         console.error('❌ 获取任务详情失败:', error)
@@ -349,19 +349,19 @@ export const useDataStore = defineStore('data', {
     async loadTasksFromContract() {
       try {
         console.log('🔄 从合约加载任务数据...')
-        
-        if (!useWeb3Store().contractService) {
-          console.warn('⚠️ 合约服务未初始化，跳过任务加载')
+
+        if (!useWeb3Store().aptosContractService) {
+          console.warn('⚠️ Aptos合约服务未初始化，跳过任务加载')
           this.tasks = []
           this.updateStats()
           return []
         }
-        
-        const contractTasks = await useWeb3Store().contractService.getAllTasks()
+
+        const contractTasks = await useWeb3Store().aptosContractService.getAllTasks()
         console.log('📄 从合约获取的任务:', contractTasks.length, '个')
-        
+
         const contractTasksWithIPFS = []
-        
+
         for (const contractTask of contractTasks) {
           try {
             console.log(`📝 处理任务 ${contractTask.id}:`, {
@@ -372,27 +372,44 @@ export const useDataStore = defineStore('data', {
               employer: contractTask.employer,
               rawTask: contractTask // 显示完整的合约任务数据
             })
-            
+
+            // 确保合约数据有必要的字段
+            const normalizedContractTask = {
+              id: contractTask.id || 'unknown',
+              title: contractTask.title || '未命名任务',
+              description: contractTask.description || '',
+              status: contractTask.status || 0,
+              creator: contractTask.creator || '',
+              reward: contractTask.reward || '0',
+              deadline: contractTask.deadline || Math.floor(Date.now() / 1000) + 86400,
+              taskType: contractTask.taskType || 1,
+              biddingPeriod: contractTask.biddingPeriod || 72,
+              developmentPeriod: contractTask.developmentPeriod || 14,
+              ipfsHash: contractTask.ipfsHash || '',
+              bidders: Array.isArray(contractTask.bidders) ? contractTask.bidders : [],
+              participants: Array.isArray(contractTask.participants) ? contractTask.participants : []
+            }
+
             let ipfsData = null
-            
+
             // 检查IPFS哈希是否有效
-            if (contractTask.ipfsHash && contractTask.ipfsHash !== '0' && contractTask.ipfsHash !== '') {
-              console.log(`🔍 获取任务 ${contractTask.id} 的IPFS数据:`, contractTask.ipfsHash)
-              
+            if (normalizedContractTask.ipfsHash && normalizedContractTask.ipfsHash !== '0' && normalizedContractTask.ipfsHash !== '') {
+              console.log(`🔍 获取任务 ${normalizedContractTask.id} 的IPFS数据:`, normalizedContractTask.ipfsHash)
+
               // 验证IPFS哈希格式
-              if (useIpfsStore().isValidIPFSHash && useIpfsStore().isValidIPFSHash(contractTask.ipfsHash)) {
+              if (useIpfsStore().isValidIPFSHash && useIpfsStore().isValidIPFSHash(normalizedContractTask.ipfsHash)) {
                 try {
-                  ipfsData = await useIpfsStore().getTaskData(contractTask.ipfsHash)
-                  console.log(`✅ 任务 ${contractTask.id} IPFS数据获取成功`)
+                  ipfsData = await useIpfsStore().getTaskData(normalizedContractTask.ipfsHash)
+                  console.log(`✅ 任务 ${normalizedContractTask.id} IPFS数据获取成功`)
                 } catch (ipfsError) {
-                  console.warn(`⚠️ 任务 ${contractTask.id} IPFS数据获取失败:`, ipfsError.message)
+                  console.warn(`⚠️ 任务 ${normalizedContractTask.id} IPFS数据获取失败:`, ipfsError.message)
                   // 继续处理，使用合约数据
                 }
               } else {
-                console.warn(`⚠️ 任务 ${contractTask.id} 包含无效的IPFS哈希:`, contractTask.ipfsHash)
+                console.warn(`⚠️ 任务 ${normalizedContractTask.id} 包含无效的IPFS哈希:`, normalizedContractTask.ipfsHash)
                 // 创建默认的IPFS数据结构
                 ipfsData = {
-                  title: contractTask.title || '未命名任务',
+                  title: normalizedContractTask.title || '未命名任务',
                   description: '此任务的详细信息无法加载（无效的IPFS哈希）',
                   taskType: 'web',
                   requirements: '',
@@ -402,7 +419,7 @@ export const useDataStore = defineStore('data', {
                   chainlinkVerification: false,
                   attachments: [],
                   employer: {
-                    address: contractTask.creator || '',
+                    address: normalizedContractTask.creator || '',
                     name: '',
                     email: '',
                     company: '',
@@ -411,22 +428,22 @@ export const useDataStore = defineStore('data', {
                     website: '',
                     socialLinks: {}
                   },
-                  biddingPeriod: contractTask.biddingPeriod || 72,
-                  developmentPeriod: contractTask.developmentPeriod || 14,
+                  biddingPeriod: normalizedContractTask.biddingPeriod || 72,
+                  developmentPeriod: normalizedContractTask.developmentPeriod || 14,
                   createdAt: Date.now(),
                   version: '1.0',
                   metadata: {
                     platform: 'Dandelion',
                     error: 'Invalid IPFS hash',
-                    invalidHash: contractTask.ipfsHash
+                    invalidHash: normalizedContractTask.ipfsHash
                   }
                 }
               }
             } else {
-              console.log(`📝 任务 ${contractTask.id} 没有IPFS数据，使用合约数据`)
+              console.log(`📝 任务 ${normalizedContractTask.id} 没有IPFS数据，使用合约数据`)
               // 创建基本的任务数据结构
               ipfsData = {
-                title: contractTask.title || '未命名任务',
+                title: normalizedContractTask.title || '未命名任务',
                 description: '此任务没有详细描述信息',
                 taskType: 'web',
                 requirements: '',
@@ -436,7 +453,7 @@ export const useDataStore = defineStore('data', {
                 chainlinkVerification: false,
                 attachments: [],
                 employer: {
-                  address: contractTask.creator || '',
+                  address: normalizedContractTask.creator || '',
                   name: '',
                   email: '',
                   company: '',
@@ -445,8 +462,8 @@ export const useDataStore = defineStore('data', {
                   website: '',
                   socialLinks: {}
                 },
-                biddingPeriod: contractTask.biddingPeriod || 72,
-                developmentPeriod: contractTask.developmentPeriod || 14,
+                biddingPeriod: normalizedContractTask.biddingPeriod || 72,
+                developmentPeriod: normalizedContractTask.developmentPeriod || 14,
                 createdAt: Date.now(),
                 version: '1.0',
                 metadata: {
@@ -455,42 +472,42 @@ export const useDataStore = defineStore('data', {
                 }
               }
             }
-            
+
             // 合并合约数据和IPFS数据
             const mergedTask = {
               // 基本信息优先使用IPFS数据
-              title: ipfsData?.title || contractTask.title || '未命名任务',
+              title: ipfsData?.title || normalizedContractTask.title || '未命名任务',
               description: ipfsData?.description || '暂无描述',
               requirements: ipfsData?.requirements || '',
               taskType: ipfsData?.taskType || 'web',
               skillsRequired: Array.isArray(ipfsData?.skillsRequired) ? ipfsData.skillsRequired : [],
-              
+
               // 合约数据（权威数据）
-              id: contractTask.id,
-              employer: contractTask.creator, // 使用creator字段
-              creator: contractTask.creator, // 向后兼容：creator字段
-              reward: contractTask.reward,
-              deadline: contractTask.deadline,
-              status: contractTask.status,
-              ipfsHash: contractTask.ipfsHash,
-              
+              id: normalizedContractTask.id,
+              employer: normalizedContractTask.creator, // 使用creator字段
+              creator: normalizedContractTask.creator, // 向后兼容：creator字段
+              reward: normalizedContractTask.reward,
+              deadline: normalizedContractTask.deadline,
+              status: normalizedContractTask.status,
+              ipfsHash: normalizedContractTask.ipfsHash,
+
               // 竞标者数据（确保是数组）
-              bidders: Array.isArray(contractTask.bidders) ? contractTask.bidders : [],
-              participants: Array.isArray(contractTask.participants) ? contractTask.participants : [],
-              
+              bidders: Array.isArray(normalizedContractTask.bidders) ? normalizedContractTask.bidders : [],
+              participants: Array.isArray(normalizedContractTask.participants) ? normalizedContractTask.participants : [],
+
               // IPFS扩展数据
               githubRequired: ipfsData?.githubRequired || false,
               githubRepo: ipfsData?.githubRepo || '',
               chainlinkVerification: ipfsData?.chainlinkVerification || false,
               attachments: Array.isArray(ipfsData?.attachments) ? ipfsData.attachments : [],
-              
+
               // 时间规划数据
-              biddingPeriod: contractTask.biddingPeriod || ipfsData?.biddingPeriod || 72,
-              developmentPeriod: contractTask.developmentPeriod || ipfsData?.developmentPeriod || 14,
-              
+              biddingPeriod: normalizedContractTask.biddingPeriod || ipfsData?.biddingPeriod || 72,
+              developmentPeriod: normalizedContractTask.developmentPeriod || ipfsData?.developmentPeriod || 14,
+
               // 雇主信息
               employerInfo: ipfsData?.employer || {
-                address: contractTask.creator || '',
+                address: normalizedContractTask.creator || '',
                 name: '',
                 email: '',
                 company: '',
@@ -499,43 +516,43 @@ export const useDataStore = defineStore('data', {
                 website: '',
                 socialLinks: {}
               },
-              
+
               // 元数据
               createdAt: ipfsData?.createdAt || Date.now(),
               version: ipfsData?.version || '1.0',
               source: 'contract+ipfs'
             }
-            
+
             contractTasksWithIPFS.push(mergedTask)
             console.log(`✅ 任务 ${contractTask.id} 处理完成:`, mergedTask.title)
-            
+
           } catch (taskError) {
-            console.error(`❌ 处理任务 ${contractTask.id} 失败:`, taskError)
-            
+            console.error(`❌ 处理任务 ${normalizedContractTask.id} 失败:`, taskError)
+
             // 即使出错也要保留基本的任务信息
             const fallbackTask = {
-              id: contractTask.id,
-              title: contractTask.title || '数据加载失败',
+              id: normalizedContractTask.id,
+              title: normalizedContractTask.title || '数据加载失败',
               description: `任务数据处理失败: ${taskError.message}`,
               taskType: 'web',
               requirements: '',
               skillsRequired: [],
-              employer: contractTask.creator, // 使用creator字段
-              creator: contractTask.creator, // 向后兼容：creator字段
-              reward: contractTask.reward,
-              deadline: contractTask.deadline,
-              status: contractTask.status,
-              ipfsHash: contractTask.ipfsHash,
-              bidders: Array.isArray(contractTask.bidders) ? contractTask.bidders : [],
-              participants: Array.isArray(contractTask.participants) ? contractTask.participants : [],
+              employer: normalizedContractTask.creator, // 使用creator字段
+              creator: normalizedContractTask.creator, // 向后兼容：creator字段
+              reward: normalizedContractTask.reward,
+              deadline: normalizedContractTask.deadline,
+              status: normalizedContractTask.status,
+              ipfsHash: normalizedContractTask.ipfsHash,
+              bidders: Array.isArray(normalizedContractTask.bidders) ? normalizedContractTask.bidders : [],
+              participants: Array.isArray(normalizedContractTask.participants) ? normalizedContractTask.participants : [],
               githubRequired: false,
               githubRepo: '',
               chainlinkVerification: false,
               attachments: [],
-              biddingPeriod: contractTask.biddingPeriod || 72,
-              developmentPeriod: contractTask.developmentPeriod || 14,
+              biddingPeriod: normalizedContractTask.biddingPeriod || 72,
+              developmentPeriod: normalizedContractTask.developmentPeriod || 14,
               employerInfo: {
-                address: contractTask.creator || '',
+                address: normalizedContractTask.creator || '',
                 name: '',
                 email: '',
                 company: '',
@@ -549,21 +566,21 @@ export const useDataStore = defineStore('data', {
               source: 'contract-only',
               error: taskError.message
             }
-            
+
             contractTasksWithIPFS.push(fallbackTask)
             console.log(`⚠️ 任务 ${contractTask.id} 使用后备数据`)
           }
         }
-        
+
         console.log(`✅ 合约任务处理完成，共 ${contractTasksWithIPFS.length} 个任务`)
-        
+
         // 直接替换任务列表，不合并本地数据
         this.tasks = contractTasksWithIPFS
         console.log(`📋 任务列表已更新，共 ${this.tasks.length} 个任务（仅来自合约）`)
-        
+
         // 更新统计信息
         this.updateStats()
-        
+
         return contractTasksWithIPFS
 
       } catch (error) {
@@ -585,7 +602,7 @@ export const useDataStore = defineStore('data', {
     // 更新任务数据
     updateTask(taskId, updates) {
       console.log('📝 更新任务数据:', taskId, updates)
-      
+
       const taskIndex = this.tasks.findIndex(task => task.id === parseInt(taskId))
       if (taskIndex >= 0) {
         // 合并更新数据
@@ -608,7 +625,7 @@ export const useDataStore = defineStore('data', {
       this.stats.totalTasks = this.tasks.length
       this.stats.activeTasks = this.tasks.filter(task => task.status === 0 || task.status === 1).length
       this.stats.completedTasks = this.tasks.filter(task => task.status === 4).length
-      
+
       const totalRewards = this.tasks.reduce((sum, task) => {
         return sum + parseFloat(task.reward || 0)
       }, 0)
@@ -626,13 +643,13 @@ export const useDataStore = defineStore('data', {
     // 格式化从合约获取的任务数据
     async formatTaskFromContract(contractTask) {
       console.log(`📄 格式化合约任务数据:`, contractTask.title)
-      
+
       // 处理IPFS数据
       let ipfsData = null
-      
+
       if (contractTask.ipfsHash && contractTask.ipfsHash !== '0' && contractTask.ipfsHash !== '') {
         console.log(`🔍 获取任务 ${contractTask.id} 的IPFS数据:`, contractTask.ipfsHash)
-        
+
         if (useIpfsStore().isValidIPFSHash && useIpfsStore().isValidIPFSHash(contractTask.ipfsHash)) {
           try {
             ipfsData = await useIpfsStore().getTaskData(contractTask.ipfsHash)
@@ -642,7 +659,7 @@ export const useDataStore = defineStore('data', {
           }
         }
       }
-      
+
       // 如果没有IPFS数据，创建基本结构
       if (!ipfsData) {
         ipfsData = {
@@ -671,7 +688,7 @@ export const useDataStore = defineStore('data', {
           version: '1.0'
         }
       }
-      
+
       // 合并合约数据和IPFS数据
       const mergedTask = {
         // 基本信息优先使用IPFS数据
@@ -680,7 +697,7 @@ export const useDataStore = defineStore('data', {
         requirements: ipfsData?.requirements || '',
         taskType: ipfsData?.taskType || 'web',
         skillsRequired: Array.isArray(ipfsData?.skillsRequired) ? ipfsData.skillsRequired : [],
-        
+
         // 合约数据（权威数据）
         id: contractTask.id,
         employer: contractTask.creator,
@@ -689,21 +706,21 @@ export const useDataStore = defineStore('data', {
         deadline: contractTask.deadline,
         status: contractTask.status,
         ipfsHash: contractTask.ipfsHash,
-        
+
         // 竞标者数据
         bidders: Array.isArray(contractTask.bidders) ? contractTask.bidders : [],
         participants: Array.isArray(contractTask.participants) ? contractTask.participants : [],
-        
+
         // IPFS扩展数据
         githubRequired: ipfsData?.githubRequired || false,
         githubRepo: ipfsData?.githubRepo || '',
         chainlinkVerification: ipfsData?.chainlinkVerification || false,
         attachments: Array.isArray(ipfsData?.attachments) ? ipfsData.attachments : [],
-        
+
         // 时间规划数据
         biddingPeriod: contractTask.biddingPeriod || ipfsData?.biddingPeriod || 72,
         developmentPeriod: contractTask.developmentPeriod || ipfsData?.developmentPeriod || 14,
-        
+
         // 雇主信息
         employerInfo: ipfsData?.employer || {
           address: contractTask.creator || '',
@@ -715,13 +732,13 @@ export const useDataStore = defineStore('data', {
           website: '',
           socialLinks: {}
         },
-        
+
         // 元数据
         createdAt: ipfsData?.createdAt || Date.now(),
         version: ipfsData?.version || '1.0',
         source: 'contract+ipfs'
       }
-      
+
       return mergedTask
     }
   }

@@ -1,6 +1,7 @@
 
 import { defineStore } from 'pinia'
 import { AptosClient } from 'aptos'
+import { APTOS_NETWORKS, DEFAULT_NETWORK } from '../utils/aptosConfig.js'
 
 export const useWalletStore = defineStore('wallet', {
   state: () => ({
@@ -9,7 +10,7 @@ export const useWalletStore = defineStore('wallet', {
     aptosConnected: false,
     aptosBalance: '0',
     aptosClient: null,
-    aptosNetwork: 'https://fullnode.mainnet.aptoslabs.com/v1', // 可根据需要切换
+    aptosNetwork: APTOS_NETWORKS[DEFAULT_NETWORK].url, // 使用测试网
     error: null,
     loading: false,
   }),

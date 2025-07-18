@@ -1,0 +1,22 @@
+[package]
+name = "MoveContracts"
+version = "0.0.1"
+authors = ["Zaydon"]
+upgrade_policy = "compatible"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "main" }
+
+[addresses]
+# 主网地址
+mainnet = "0x1"
+# 测试网地址  
+testnet = "0xa1b3e0179d015222a7dfae11a029f96b173f0bf5b4747fd6c2d057dead2b921b"
+# 开发网地址
+devnet = "0x1"
+
+# 项目模块地址
+dandelion = "0xa1b3e0179d015222a7dfae11a029f96b173f0bf5b4747fd6c2d057dead2b921b"
+
+[dev-dependencies]
+# 开发依赖配置

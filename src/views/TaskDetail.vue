@@ -26,171 +26,75 @@
 
     <!-- 任务详情内容 -->
     <div v-else>
-    <!-- 任务详情头部 -->
-    <div class="bg-gradient-to-r from-primary-600 to-primary-700 text-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- 任务详情头部 -->
+      <div class="bg-gradient-to-r from-primary-600 to-primary-700 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div class="flex items-start justify-between">
             <div class="flex-1">
-            <div class="flex items-center space-x-4 mb-4">
+              <div class="flex items-center space-x-4 mb-4">
                 <span :class="getStatusClass(task.status)" class="px-3 py-1 rounded-full text-sm font-medium">
                   {{ getStatusText(task.status) }}
                 </span>
-              <span class="bg-white/20 px-3 py-1 rounded-full text-sm">
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">
                   {{ getTypeText(task.taskType) }}
                 </span>
               </div>
-            <h1 class="text-3xl font-bold mb-4">{{ task.title }}</h1>
-            <div class="flex items-center space-x-6 text-primary-100">
-              <div class="flex items-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                    </svg>
-                <span class="text-2xl font-bold">{{ task.reward }} AVAX</span>
-                  </div>
-              <div class="flex items-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                    </svg>
-                <span>{{ task.participants }}/{{ task.maxParticipants || '∞' }} 参与者</span>
-                  </div>
-              <div class="flex items-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                <span>{{ formatDeadline() }}</span>
-                  </div>
-                  </div>
+              <h1 class="text-3xl font-bold mb-4">{{ task.title }}</h1>
+              <div class="flex items-center space-x-6 text-primary-100">
+                <div class="flex items-center space-x-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                  </svg>
+                  <span class="text-2xl font-bold">{{ task.reward }} AVAX</span>
                 </div>
-          <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
+                  <span>{{ task.participants }}/{{ task.maxParticipants || '∞' }} 参与者</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>{{ formatDeadline() }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-4">
               <!-- 竞标按钮 -->
-                <button
-              v-if="task.status === 1 && canBid"
-                  @click="showBidModal = true"
-              class="bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
-                >
-              参与竞标
-                </button>
-            <!-- 雇主操作按钮 -->
-            <div v-if="isCreator" class="flex space-x-2">
-                <button
-                v-if="task.status === 0"
-                @click="startBidding"
-                class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+              <button
+                v-if="task.status === 1 && canBid"
+                @click="showBidModal = true"
+                class="bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
               >
-                开始竞标
+                参与竞标
+              </button>
+              <!-- 雇主操作按钮 -->
+              <div v-if="isCreator" class="flex space-x-2">
+                <button
+                  v-if="task.status === 0"
+                  @click="startBidding"
+                  class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+                >
+                  开始竞标
                 </button>
                 <button
                   v-if="task.status === 1 && task.bidders && task.bidders.length > 0"
-                @click="showSelectWinnerModal = true"
-                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-              >
-                选择中标者
+                  @click="showSelectWinnerModal = true"
+                  class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                >
+                  选择中标者
                 </button>
                 <button
-                v-if="task.status === 3"
-                @click="showReviewModal = true"
-                class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600"
-              >
-                评审成果
+                  v-if="task.status === 3"
+                  @click="showReviewModal = true"
+                  class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600"
+                >
+                  评审成果
                 </button>
               </div>
             </div>
-=======
-  <div class="task-detail">
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
-      <div class="loading-spinner"></div>
-      <p>加载任务详情中...</p>
-    </div>
-
-    <!-- 错误状态 -->
-    <div v-else-if="error" class="error-container">
-      <div class="error-message">
-        <h3>加载失败</h3>
-        <p>{{ error }}</p>
-        <button @click="loadTask" class="retry-btn">重试</button>
-      </div>
-    </div>
-
-    <!-- 任务详情 -->
-    <div v-else-if="task" class="task-content">
-      <!-- 任务头部信息 -->
-      <div class="task-header">
-        <div class="task-title-section">
-          <h1>{{ task.title }}</h1>
-          <div class="task-meta">
-            <span class="task-id">任务ID: {{ task.id }}</span>
-            <span class="task-category">{{ task.category }}</span>
-            <span class="task-status" :class="getStatusClass(task.status)">
-              {{ getStatusText(task.status) }}
-            </span>
-          </div>
-        </div>
-        
-        <div class="task-reward">
-          <div class="reward-amount">
-            <span class="amount">{{ task.reward }}</span>
-            <span class="currency">AVAX</span>
-          </div>
-          <div class="platform-fee" v-if="platformFee">
-            <small>平台费用: {{ platformFee }} AVAX</small>
-          </div>
-        </div>
-      </div>
-
-      <!-- 任务描述 -->
-      <div class="task-description">
-        <h3>任务描述</h3>
-        <div class="description-content" v-html="formatDescription(task.description)"></div>
-      </div>
-
-      <!-- 任务要求 -->
-      <div class="task-requirements" v-if="task.requirements">
-        <h3>任务要求</h3>
-        <ul>
-          <li v-for="req in task.requirements" :key="req">{{ req }}</li>
-        </ul>
-      </div>
-
-      <!-- 任务状态流程 -->
-      <div class="task-status-section">
-        <h3>任务状态</h3>
-        <TaskStatusFlow 
-          :task="task" 
-          :current-user="currentUser"
-          @action-executed="handleActionExecuted"
-          @status-updated="handleStatusUpdated"
-        />
-      </div>
-
-      <!-- 参与者信息 -->
-      <div class="participants-section" v-if="participants.length > 0">
-        <h3>参与者 ({{ participants.length }})</h3>
-        <div class="participants-list">
-          <div 
-            v-for="participant in participants" 
-            :key="participant.address"
-            class="participant-card"
-            :class="{ 'winner': participant.address === task.winner }"
-          >
-            <div class="participant-info">
-              <div class="participant-address">{{ formatAddress(participant.address) }}</div>
-              <div class="participant-bid" v-if="participant.bidAmount">
-                出价: {{ participant.bidAmount }} AVAX
-              </div>
-              <div class="participant-time">
-                参与时间: {{ formatDate(participant.timestamp) }}
-              </div>
-            </div>
-            <div class="participant-status">
-              <span v-if="participant.address === task.winner" class="winner-badge">
-                中标者
-              </span>
-              <span v-else-if="task.status === 'BIDDING'" class="bidding-badge">
-                竞标中
-              </span>
-            </div>
->>>>>>> ee6116c (chore: push all project files for Move链版本)
           </div>
         </div>
       </div>
@@ -309,7 +213,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWeb3Store } from '@/stores/web3'
 import { storeToRefs } from 'pinia'
 import TaskStatusFlow from '@/components/TaskStatusFlow.vue'
-import { TASK_STATUS } from '@/constants'
+import { TASK_STATUS } from '@/stores/data'
 
 export default {
   name: 'TaskDetail',

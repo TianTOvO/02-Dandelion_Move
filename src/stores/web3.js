@@ -1,10 +1,8 @@
 import { defineStore } from 'pinia'
-import { ethers } from 'ethers'
-import { CONTRACT_ADDRESSES, CONTRACT_ABIS, AVALANCHE_FUJI, validateContractConfig } from '../utils/contracts.js'
-import ContractService from '../utils/contractService.js'
+import { CONTRACT_ADDRESSES, CONTRACT_ABIS, APTOS_TESTNET, validateContractConfig } from '../utils/contracts.js'
+import aptosWalletService from '../utils/aptosWalletService.js'
 
-// 确保ethers v5的正确导入
-const { providers, utils } = ethers
+// Aptos 钱包服务配置
 
 export const useWeb3Store = defineStore('web3', {
   state: () => ({
@@ -14,10 +12,10 @@ export const useWeb3Store = defineStore('web3', {
     balance: '0',
     chainId: null,
 
-    // 合约实例
-    provider: null,
-    signer: null,
-    contractService: null,
+    // Aptos 钱包服务
+    aptosWalletService: null,
+
+    // 合约实例 (适配 Aptos)
     contracts: {
       taskFactory: null,
       biddingSystem: null,
@@ -39,10 +37,10 @@ export const useWeb3Store = defineStore('web3', {
 
     // 任务状态缓存
     taskCache: new Map(),
-    
+
     // 事件监听状态
     eventListenersActive: false,
-    
+
     // 平台费用信息
     platformFeeInfo: {
       platformAddress: '',
@@ -61,12 +59,15 @@ export const useWeb3Store = defineStore('web3', {
     // 格式化余额
     formattedBalance: (state) => {
       const balance = parseFloat(state.balance)
-      return balance.toFixed(4) + ' AVAX'
+      return balance.toFixed(4) + ' APT'
     },
 
     // 检查是否为正确网络
     isCorrectNetwork: (state) => {
-      return state.chainId === parseInt(AVALANCHE_FUJI.chainId, 16)
+      // 确保类型比较正确，chainId 可能是字符串或数字
+      const currentChainId = parseInt(state.chainId)
+      const expectedChainId = parseInt(APTOS_TESTNET.chainId)
+      return currentChainId === expectedChainId
     },
 
     // 获取最近的交易
@@ -93,49 +94,34 @@ export const useWeb3Store = defineStore('web3', {
         this.loading = true
         this.error = null
 
-        // 检查是否安装了MetaMask
-        if (!window.ethereum) {
-          throw new Error('请安装MetaMask钱包')
+        console.log('🔗 正在连接 Petra 钱包...')
+
+        // 使用 Aptos 钱包服务连接
+        const result = await aptosWalletService.connectWallet()
+
+        if (!result.success) {
+          throw new Error('钱包连接失败')
         }
 
-        console.log('🔗 正在连接钱包...')
-
-          // 请求账户访问权限
-        const accounts = await window.ethereum.request({
-              method: 'eth_requestAccounts'
-            })
-
-        if (accounts.length === 0) {
-          throw new Error('未获取到账户权限')
-        }
-
-        // 创建provider - 修复ethers v5兼容性问题
-        this.provider = new ethers.providers.Web3Provider(window.ethereum, 'any')
-        
-        // 等待provider准备就绪
-        await this.provider.ready
-
-        // 获取网络信息
-        const network = await this.provider.getNetwork()
-        this.chainId = network.chainId
-        console.log('🌐 当前网络:', network.name, 'Chain ID:', this.chainId)
-
-        // 获取signer
-          this.signer = this.provider.getSigner()
-        this.account = await this.signer.getAddress()
+        // 更新状态
+        this.account = result.address
+        this.chainId = result.network.chainId
+        this.aptosWalletService = aptosWalletService
+        this.isConnected = true
 
         console.log('👤 连接的账户:', this.account)
+        console.log('🌐 当前网络:', result.network.name, 'Chain ID:', this.chainId)
 
         // 获取余额
         await this.updateBalance()
 
         // 检查网络
         if (!this.isCorrectNetwork) {
-          console.warn('⚠️ 当前网络不是Avalanche Fuji测试网')
+          console.warn('⚠️ 当前网络不是 Aptos 测试网')
           try {
-            await this.switchToAvalanche()
+            await this.switchToAptosTestnet()
           } catch (switchError) {
-            console.warn('⚠️ 自动切换网络失败，请手动切换到Avalanche Fuji测试网')
+            console.warn('⚠️ 自动切换网络失败，请手动切换到 Aptos 测试网')
           }
         }
 
@@ -161,7 +147,7 @@ export const useWeb3Store = defineStore('web3', {
         }
 
         this.isConnected = true
-        console.log('✅ 钱包连接成功:', this.account)
+        console.log('✅ Petra 钱包连接成功:', this.account)
         console.log('💰 账户余额:', this.formattedBalance)
         console.log('🔗 合约初始化:', contractsInitialized ? '成功' : '失败')
         console.log('👂 事件监听器:', this.eventListenersActive ? '已激活' : '未激活')
@@ -169,16 +155,15 @@ export const useWeb3Store = defineStore('web3', {
         return true
 
       } catch (error) {
-        console.error('❌ 钱包连接失败:', error)
+        console.error('❌ Petra 钱包连接失败:', error)
         this.error = error.message
         this.isConnected = false
-        
+
         // 清理部分初始化的状态
-        this.provider = null
-        this.signer = null
+        this.aptosWalletService = null
         this.account = null
         this.chainId = null
-        
+
         throw error
       } finally {
         this.loading = false
@@ -187,35 +172,33 @@ export const useWeb3Store = defineStore('web3', {
 
     async disconnectWallet() {
       try {
-        console.log('🔌 断开钱包连接...')
-        
-        // 清理合约服务
-      if (this.contractService) {
-        this.contractService.cleanup()
-        this.contractService = null
-      }
+        console.log('🔌 断开 Petra 钱包连接...')
+
+        // 清理 Aptos 钱包服务
+        if (this.aptosWalletService) {
+          this.aptosWalletService.cleanup()
+          this.aptosWalletService = null
+        }
 
         // 移除事件监听
         this.removeWalletEventListeners()
 
         // 重置状态
-      this.isConnected = false
-      this.account = null
-      this.balance = '0'
-      this.chainId = null
-      this.provider = null
-      this.signer = null
-      this.contracts = {
-        taskFactory: null,
-        biddingSystem: null,
-        escrow: null,
-        disputeDAO: null
-      }
+        this.isConnected = false
+        this.account = null
+        this.balance = '0'
+        this.chainId = null
+        this.contracts = {
+          taskFactory: null,
+          biddingSystem: null,
+          escrow: null,
+          disputeDAO: null
+        }
         this.eventListenersActive = false
         this.taskCache.clear()
-      this.error = null
+        this.error = null
 
-        console.log('✅ 钱包连接已断开')
+        console.log('✅ Petra 钱包连接已断开')
       } catch (error) {
         console.error('❌ 断开连接失败:', error)
       }
@@ -223,45 +206,31 @@ export const useWeb3Store = defineStore('web3', {
 
     async updateBalance() {
       try {
-        if (!this.provider || !this.account) return
+        if (!this.aptosWalletService || !this.account) return
 
-        const balance = await this.provider.getBalance(this.account)
-        this.balance = ethers.utils.formatEther(balance)
+        const balance = await this.aptosWalletService.getBalance()
+        this.balance = balance
         console.log('💰 余额更新:', this.formattedBalance)
       } catch (error) {
         console.error('❌ 更新余额失败:', error)
       }
     },
 
-    async switchToAvalanche() {
+    async switchToAptosTestnet() {
       try {
-        console.log('🔄 切换到Avalanche Fuji测试网...')
-        
-        // 尝试切换到Avalanche Fuji网络
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: AVALANCHE_FUJI.chainId }],
-        })
-        
-        console.log('✅ 成功切换到Avalanche Fuji测试网')
-      } catch (switchError) {
-        // 如果网络不存在，尝试添加网络
-        if (switchError.code === 4902) {
-          try {
-            console.log('📡 添加Avalanche Fuji网络配置...')
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-              params: [AVALANCHE_FUJI],
-          })
-            console.log('✅ 成功添加Avalanche Fuji网络')
-          } catch (addError) {
-            console.error('❌ 添加网络失败:', addError)
-            throw new Error('无法添加Avalanche Fuji网络，请手动添加')
-          }
-        } else {
-          console.error('❌ 切换网络失败:', switchError)
-          throw new Error('网络切换失败，请手动切换到Avalanche Fuji测试网')
+        console.log('🔄 切换到 Aptos 测试网...')
+
+        if (!this.aptosWalletService) {
+          throw new Error('钱包服务未初始化')
         }
+
+        await this.aptosWalletService.switchNetwork('testnet')
+        this.chainId = APTOS_TESTNET.chainId
+
+        console.log('✅ 成功切换到 Aptos 测试网')
+      } catch (error) {
+        console.error('❌ 切换网络失败:', error)
+        throw new Error('网络切换失败，请手动切换到 Aptos 测试网')
       }
     },
 
@@ -269,8 +238,8 @@ export const useWeb3Store = defineStore('web3', {
 
     async initializeContracts() {
       try {
-        if (!this.provider || !this.signer) {
-          throw new Error('Provider或Signer未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
         // 验证合约配置
@@ -282,24 +251,21 @@ export const useWeb3Store = defineStore('web3', {
           console.warn('⚠️ 合约配置验证失败:', validation.errors)
         }
 
-        // 清理旧的合约服务
-        if (this.contractService) {
-          this.contractService.cleanup()
-          this.contractService = null
+        // 初始化 Aptos 合约服务
+        if (!this.aptosContractService) {
+          const AptosContractService = (await import('../utils/aptosContractService.js')).default
+          this.aptosContractService = new AptosContractService()
+          this.aptosContractService.setAccount({ address: this.account })
+
+          // 自动检测合约部署状态并设置模式
+          await this.aptosContractService.autoDetectMode()
         }
 
-        // 创建合约服务实例
-        this.contractService = new ContractService(this.provider, this.signer)
-        
-        // 直接访问合约实例
-        this.contracts = this.contractService.contracts
-        
-        console.log('✅ 合约服务初始化成功')
+        console.log('✅ Aptos 合约服务初始化成功')
         return true
       } catch (error) {
         console.error('❌ 合约初始化失败:', error)
         this.error = error.message
-        this.contractService = null
         return false
       }
     },
@@ -307,81 +273,62 @@ export const useWeb3Store = defineStore('web3', {
     // ==================== 事件监听管理 ====================
 
     setupWalletEventListeners() {
-      if (!window.ethereum) return
+      if (!this.aptosWalletService) return
 
-      // 账户变更
-      window.ethereum.on('accountsChanged', (accounts) => {
-        console.log('👤 账户变更:', accounts)
-        if (accounts.length === 0) {
-          this.disconnectWallet()
-        } else if (accounts[0] !== this.account) {
-          this.account = accounts[0]
-          this.updateBalance()
+      // 设置 Aptos 钱包事件监听器
+      this.aptosWalletService.setupEventListeners({
+        onAccountChange: (account) => {
+          console.log('👤 账户变更:', account)
+          if (!account) {
+            this.disconnectWallet()
+          } else if (account !== this.account) {
+            this.account = account
+            this.updateBalance()
+            this.initializeContracts()
+          }
+        },
+        onNetworkChange: (network) => {
+          console.log('🌐 网络变更:', network)
+          this.chainId = network.chainId
+          if (!this.isCorrectNetwork) {
+            console.warn('⚠️ 当前网络不是 Aptos 测试网')
+          }
           this.initializeContracts()
+        },
+        onDisconnect: (error) => {
+          console.log('🔌 钱包断开:', error)
+          this.disconnectWallet()
         }
-      })
-
-      // 网络变更
-      window.ethereum.on('chainChanged', (chainId) => {
-        console.log('🌐 网络变更:', chainId)
-        this.chainId = parseInt(chainId, 16)
-        if (!this.isCorrectNetwork) {
-          console.warn('⚠️ 当前网络不是Avalanche Fuji测试网')
-        }
-        this.initializeContracts()
-      })
-
-      // 连接状态变更
-      window.ethereum.on('connect', (connectInfo) => {
-        console.log('🔗 钱包连接:', connectInfo)
-      })
-
-      // 断开连接
-      window.ethereum.on('disconnect', (error) => {
-        console.log('🔌 钱包断开:', error)
-        this.disconnectWallet()
       })
     },
 
     removeWalletEventListeners() {
-      if (!window.ethereum) return
+      if (!this.aptosWalletService) return
 
-        window.ethereum.removeAllListeners('accountsChanged')
-        window.ethereum.removeAllListeners('chainChanged')
-      window.ethereum.removeAllListeners('connect')
-      window.ethereum.removeAllListeners('disconnect')
+      this.aptosWalletService.removeEventListeners()
     },
 
     setupContractEventListeners() {
-      if (!this.contractService) {
-        console.warn('⚠️ 合约服务未初始化，跳过事件监听器设置')
+      if (!this.aptosWalletService) {
+        console.warn('⚠️ Aptos 钱包服务未初始化，跳过事件监听器设置')
         this.eventListenersActive = false
         return
       }
 
       try {
-        console.log('🔗 开始设置合约事件监听器...')
-        
-        this.contractService.setupTaskEventListeners((event) => {
-          console.log('📋 合约事件:', event)
-          this.handleContractEvent(event)
-        })
-        
-        // 检查事件监听器是否真正激活
-        this.eventListenersActive = this.contractService.eventListenersActive || false
-        
-        if (this.eventListenersActive) {
-          console.log('✅ 合约事件监听器设置完成')
-          } else {
-          console.log('⚠️ 事件监听器未激活，将使用手动刷新模式')
-          }
-        } catch (error) {
+        console.log('🔗 开始设置 Aptos 合约事件监听器...')
+
+        // 这里可以添加 Aptos 合约事件监听器设置
+        // 暂时设置为手动刷新模式
+        this.eventListenersActive = false
+        console.log('⚠️ 事件监听器未激活，将使用手动刷新模式')
+      } catch (error) {
         console.error('❌ 设置合约事件监听器失败:', error)
         console.warn('⚠️ 事件监听器设置失败，但不影响钱包连接')
-        
+
         // 设置标志表示事件监听器未激活
         this.eventListenersActive = false
-        
+
         // 不抛出错误，允许钱包连接继续
       }
     },
@@ -450,39 +397,45 @@ export const useWeb3Store = defineStore('web3', {
 
     // ==================== TaskFactory 合约交互 ====================
 
-    async createTask(title, ipfsHash, reward, deadline, taskType) {
+    async createTask(title, ipfsHash, reward, deadline, taskType, biddingPeriod, developmentPeriod) {
       try {
         this.loading = true
         this.error = null
 
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        console.log('🚀 创建任务:', { title, ipfsHash, reward, deadline, taskType })
+        console.log('🚀 创建任务:', { title, ipfsHash, reward, deadline, taskType, biddingPeriod, developmentPeriod })
 
         // 转换deadline为时间戳
         const deadlineTimestamp = Math.floor(new Date(deadline).getTime() / 1000)
 
-        const result = await this.contractService.createTask(
+        // 使用 Aptos 合约服务创建任务
+        if (!this.aptosContractService) {
+          throw new Error('Aptos 合约服务未初始化')
+        }
+
+        const result = await this.aptosContractService.createTask({
           title,
           ipfsHash,
-          reward.toString(),
-          deadlineTimestamp,
-          taskType
-        )
+          reward: reward.toString(),
+          deadline: deadlineTimestamp,
+          taskType: parseInt(taskType),
+          biddingPeriod: parseInt(biddingPeriod),
+          developmentPeriod: parseInt(developmentPeriod)
+        })
 
         // 添加到交易历史
         this.addToTxHistory({
-          hash: result.txHash,
+          hash: result.hash,
           type: 'createTask',
           status: 'confirmed',
           timestamp: Date.now(),
-          data: { 
-            title, 
-            reward, 
-            taskId: result.taskId,
-            platformFee: result.platformFee 
+          data: {
+            title,
+            reward,
+            taskId: result.taskId
           }
         })
 
@@ -576,11 +529,13 @@ export const useWeb3Store = defineStore('web3', {
 
     async getAllTasks() {
       try {
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        return await this.contractService.getAllTasks()
+        // 这里可以添加从 Aptos 合约获取任务的逻辑
+        console.log('📋 从 Aptos 合约获取任务列表')
+        return []
       } catch (error) {
         console.error('❌ 获取任务列表失败:', error)
         this.error = error.message
@@ -595,15 +550,19 @@ export const useWeb3Store = defineStore('web3', {
           return this.taskCache.get(taskId)
         }
 
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        const task = await this.contractService.getTaskById(taskId)
-        
+        // 这里可以添加从 Aptos 合约获取任务详情的逻辑
+        console.log('📋 从 Aptos 合约获取任务详情:', taskId)
+        const task = null // 暂时返回 null
+
         // 缓存任务数据
-        this.taskCache.set(taskId, task)
-        
+        if (task) {
+          this.taskCache.set(taskId, task)
+        }
+
         return task
       } catch (error) {
         console.error('❌ 获取任务详情失败:', error)
@@ -614,11 +573,13 @@ export const useWeb3Store = defineStore('web3', {
 
     async getTasksByOwner(ownerAddress) {
       try {
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        return await this.contractService.getTasksByOwner(ownerAddress)
+        // 这里可以添加从 Aptos 合约获取用户任务的逻辑
+        console.log('📋 从 Aptos 合约获取用户任务:', ownerAddress)
+        return []
       } catch (error) {
         console.error('❌ 获取用户任务失败:', error)
         this.error = error.message
@@ -628,11 +589,13 @@ export const useWeb3Store = defineStore('web3', {
 
     async getTaskParticipants(taskId) {
       try {
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        return await this.contractService.getTaskParticipants(taskId)
+        // 这里可以添加从 Aptos 合约获取任务参与者的逻辑
+        console.log('📋 从 Aptos 合约获取任务参与者:', taskId)
+        return []
       } catch (error) {
         console.error('❌ 获取任务参与者失败:', error)
         this.error = error.message
@@ -642,12 +605,17 @@ export const useWeb3Store = defineStore('web3', {
 
     async loadPlatformFeeInfo() {
       try {
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        this.platformFeeInfo = await this.contractService.getPlatformFeeInfo()
-        console.log('💰 平台费用信息:', this.platformFeeInfo)
+        // 这里可以添加从 Aptos 合约获取平台费用信息的逻辑
+        console.log('💰 从 Aptos 合约获取平台费用信息')
+        this.platformFeeInfo = {
+          platformAddress: '',
+          feeRate: 0,
+          totalFees: '0'
+        }
       } catch (error) {
         console.error('❌ 获取平台费用信息失败:', error)
       }
@@ -655,11 +623,14 @@ export const useWeb3Store = defineStore('web3', {
 
     async calculatePlatformFee(rewardAmount) {
       try {
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        return await this.contractService.calculatePlatformFee(rewardAmount)
+        // 这里可以添加从 Aptos 合约计算平台费用的逻辑
+        console.log('💰 计算平台费用:', rewardAmount)
+        // 暂时返回 0
+        return '0'
       } catch (error) {
         console.error('❌ 计算平台费用失败:', error)
         throw error
@@ -668,11 +639,14 @@ export const useWeb3Store = defineStore('web3', {
 
     async calculateTotalAmount(rewardAmount) {
       try {
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosWalletService) {
+          throw new Error('Aptos 钱包服务未初始化')
         }
 
-        return await this.contractService.calculateTotalAmount(rewardAmount)
+        // 这里可以添加从 Aptos 合约计算总金额的逻辑
+        console.log('💰 计算总金额:', rewardAmount)
+        // 暂时返回奖励金额
+        return rewardAmount
       } catch (error) {
         console.error('❌ 计算总金额失败:', error)
         throw error
@@ -682,34 +656,40 @@ export const useWeb3Store = defineStore('web3', {
     // ==================== 任务状态流程管理 ====================
 
     getAvailableActions(task) {
-      if (!this.contractService || !this.account) {
+      if (!this.aptosWalletService || !this.account) {
         return []
       }
 
-      return this.contractService.getAvailableActions(task, this.account)
+      // 这里可以添加获取可用操作的逻辑
+      console.log('📋 获取可用操作:', task, this.account)
+      return []
     },
 
     getTaskProgress(status) {
-      if (!this.contractService) {
+      if (!this.aptosWalletService) {
         return { step: 1, total: 6, percentage: 16, label: '未知' }
       }
 
-      return this.contractService.getTaskProgress(status)
+      // 这里可以添加获取任务进度的逻辑
+      console.log('📋 获取任务进度:', status)
+      return { step: 1, total: 6, percentage: 16, label: '未知' }
     },
 
     checkPermission(task, action) {
-      if (!this.contractService || !this.account) {
+      if (!this.aptosWalletService || !this.account) {
         return false
       }
 
-      return this.contractService.checkPermission(task, action, this.account)
+      // 这里可以添加检查权限的逻辑
+      console.log('📋 检查权限:', task, action, this.account)
+      return false
     },
 
     // ==================== 工具方法 ====================
 
     addToTxHistory(tx) {
       this.txHistory.unshift(tx)
-      
+
       // 保持历史记录不超过100条
       if (this.txHistory.length > 100) {
         this.txHistory = this.txHistory.slice(0, 100)
@@ -735,10 +715,10 @@ export const useWeb3Store = defineStore('web3', {
 
     // 获取合约信息
     getContractInfo() {
-        return {
+      return {
         addresses: CONTRACT_ADDRESSES,
         abis: CONTRACT_ABIS,
-        network: AVALANCHE_FUJI,
+        network: APTOS_TESTNET,
         validation: this.validateConfig()
       }
     },
@@ -748,14 +728,14 @@ export const useWeb3Store = defineStore('web3', {
     cleanup() {
       try {
         this.removeWalletEventListeners()
-        
-        if (this.contractService) {
-          this.contractService.cleanup()
+
+        if (this.aptosWalletService) {
+          this.aptosWalletService.cleanup()
         }
-        
+
         this.taskCache.clear()
         this.txHistory = []
-        
+
         console.log('✅ Web3 Store 清理完成')
       } catch (error) {
         console.error('❌ 清理 Web3 Store 失败:', error)

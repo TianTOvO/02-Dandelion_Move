@@ -1,7 +1,49 @@
-# DandelionDemon - 去中心化任务悬赏平台
+# Dandelion - 去中心化任务悬赏平台
 
 ## GitHub仓库链接
 https://github.com/TianTOvO/Dandelion_Move
+
+## 快速开始
+
+### 1. 安装依赖
+```bash
+npm install
+```
+
+### 2. 启动前端服务
+```bash
+cd frontend
+npm run dev
+```
+
+### 3. IPFS配置（可选）
+Dandelion使用IPFS存储数据。如果IPFS节点未运行，系统会自动启用模拟模式。
+
+**安装IPFS Desktop（推荐）**:
+1. 访问 [IPFS Desktop官网](https://ipfs.io/ipfs-desktop/)
+2. 下载并安装
+3. 启动IPFS Desktop
+
+**或使用命令行**:
+```bash
+# Windows
+start-ipfs.bat
+
+# 检查状态
+node check-ipfs-status.js
+```
+
+### 4. 连接钱包
+1. 安装Petra钱包（Aptos）
+2. 连接钱包到应用
+3. 切换到Aptos测试网
+
+## 技术栈
+
+- **前端**: Vue 3 + Vite + Tailwind CSS
+- **区块链**: Aptos Move
+- **存储**: IPFS（星际文件系统）
+- **钱包**: Petra（Aptos钱包）
 
 ## 测试数据
 

@@ -166,7 +166,7 @@
                 
                 <div>
                   <label class="block text-sm font-medium text-neutral-700 mb-2">
-                    任务奖金 (AVAX) *
+                    任务奖金 (APT) *
                   </label>
                   <input
                     v-model="taskForm.reward"
@@ -180,9 +180,9 @@
                   <div class="mt-2 p-3 bg-blue-50 rounded-lg">
                     <p class="text-sm text-blue-700">
                       <strong>费用明细：</strong><br>
-                      任务奖金: {{ taskForm.reward || 0 }} AVAX<br>
-                      平台费用 (0.5%): {{ calculatePlatformFee() }} AVAX<br>
-                      <strong>总计: {{ calculateTotal() }} AVAX</strong>
+                      任务奖金: {{ taskForm.reward || 0 }} APT<br>
+                      平台费用 (0.5%): {{ calculatePlatformFee() }} APT<br>
+                      <strong>总计: {{ calculateTotal() }} APT</strong>
                     </p>
                   </div>
                 </div>
@@ -426,7 +426,7 @@
                   <ul class="space-y-1 text-sm text-neutral-600">
                     <li><strong>标题:</strong> {{ taskForm.title }}</li>
                     <li><strong>类型:</strong> {{ getTaskTypeLabel(taskForm.taskType) }}</li>
-                    <li><strong>奖金:</strong> {{ taskForm.reward }} AVAX</li>
+                    <li><strong>奖金:</strong> {{ taskForm.reward }} APT</li>
                     <li><strong>截止:</strong> {{ taskForm.deadline }}</li>
                   </ul>
                 </div>
@@ -471,15 +471,15 @@
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                   <span>任务奖金:</span>
-                  <span>{{ taskForm.reward }} AVAX</span>
+                  <span>{{ taskForm.reward }} APT</span>
                 </div>
                 <div class="flex justify-between">
                   <span>平台费用 (0.5%):</span>
-                  <span>{{ calculatePlatformFee() }} AVAX</span>
+                  <span>{{ calculatePlatformFee() }} APT</span>
                 </div>
                 <div class="border-t border-blue-200 pt-2 flex justify-between font-semibold">
                   <span>总计:</span>
-                  <span>{{ calculateTotal() }} AVAX</span>
+                  <span>{{ calculateTotal() }} APT</span>
                 </div>
               </div>
             </div>
@@ -794,7 +794,7 @@ const handleSubmit = async () => {
       developmentPeriod: parseInt(taskForm.value.developmentPeriod)
     })
     
-    const result = await web3Store.contractService.createTask(
+    const result = await web3Store.createTask(
       taskForm.value.title,
       ipfsHash,
       taskForm.value.reward,
@@ -817,12 +817,17 @@ const handleSubmit = async () => {
       
       // 验证任务是否存在
       try {
-        const createdTask = await dataStore.fetchTaskById(result.taskId)
-        if (createdTask) {
-          console.log('✅ 任务创建并同步成功:', createdTask.title)
-          uploadProgress.value = '任务创建成功！正在跳转...'
+        if (result.taskId) {
+          const createdTask = await dataStore.fetchTaskById(result.taskId)
+          if (createdTask) {
+            console.log('✅ 任务创建并同步成功:', createdTask.title)
+            uploadProgress.value = '任务创建成功！正在跳转...'
+          } else {
+            console.warn('⚠️ 任务验证失败，但仍将跳转')
+            uploadProgress.value = '任务创建成功！正在跳转...'
+          }
         } else {
-          console.warn('⚠️ 任务验证失败，但仍将跳转')
+          console.warn('⚠️ 未获取到任务ID，但仍将跳转')
           uploadProgress.value = '任务创建成功！正在跳转...'
         }
       } catch (verifyError) {
@@ -836,7 +841,12 @@ const handleSubmit = async () => {
     
     // 跳转到任务详情页
     setTimeout(() => {
-      router.push(`/task/${result.taskId}`)
+      if (result.taskId) {
+        router.push(`/task/${result.taskId}`)
+      } else {
+        // 如果没有任务ID，跳转到任务列表页
+        router.push('/tasks')
+      }
     }, 1500)
 
   } catch (error) {

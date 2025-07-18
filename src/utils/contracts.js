@@ -1,15 +1,25 @@
-// 智能合约配置文件
-import TaskFactoryABI from '../../../contracts/contracts/ContractsABI/TaskFactoryABI.json'
-import BiddingSystemABI from '../../../contracts/contracts/ContractsABI/BiddingSystemABI.json'
-import EscrowABI from '../../../contracts/contracts/ContractsABI/EscrowABI.json'
-import DisputeDAO_ABI from '../../../contracts/contracts/ContractsABI/DisputeDAO_ABI.json'
+// 智能合约配置文件 - Move 链版本
+// 由于这是 Move 项目，我们使用简化的 ABI 结构
+
+// 简化的 ABI 结构用于 Move 合约
+const createMoveABI = (moduleName) => ({
+  module: moduleName,
+  functions: [],
+  structs: []
+})
+
+// 智能合约 ABI 配置
+const TaskFactoryABI = createMoveABI('TaskFactory')
+const BiddingSystemABI = createMoveABI('BiddingSystem')
+const EscrowABI = createMoveABI('Escrow')
+const DisputeDAO_ABI = createMoveABI('DisputeDAO')
 
 // 调试：检查ABI导入
-console.log('🔍 ABI导入检查:')
-console.log('TaskFactoryABI类型:', typeof TaskFactoryABI, '长度:', Array.isArray(TaskFactoryABI) ? TaskFactoryABI.length : 'N/A')
-console.log('BiddingSystemABI类型:', typeof BiddingSystemABI, '长度:', Array.isArray(BiddingSystemABI) ? BiddingSystemABI.length : 'N/A')
-console.log('EscrowABI类型:', typeof EscrowABI, '长度:', Array.isArray(EscrowABI) ? EscrowABI.length : 'N/A')
-console.log('DisputeDAO_ABI类型:', typeof DisputeDAO_ABI, '长度:', Array.isArray(DisputeDAO_ABI) ? DisputeDAO_ABI.length : 'N/A')
+console.log('🔍 Move ABI配置检查:')
+console.log('TaskFactoryABI:', TaskFactoryABI)
+console.log('BiddingSystemABI:', BiddingSystemABI)
+console.log('EscrowABI:', EscrowABI)
+console.log('DisputeDAO_ABI:', DisputeDAO_ABI)
 
 // 智能合约地址配置 - 部署后需要更新这些地址
 export const CONTRACT_ADDRESSES = {
@@ -38,37 +48,37 @@ console.log('🔍 ABI配置检查:', {
   DisputeDAO: CONTRACT_ABIS.DisputeDAO ? '✅' : '❌'
 })
 
-// Avalanche Fuji测试网配置
-export const AVALANCHE_FUJI = {
-  chainId: '0xA869', // 43113
-  chainName: 'Avalanche Fuji Testnet',
+// Aptos 测试网配置
+export const APTOS_TESTNET = {
+  chainId: 2,
+  chainName: 'Aptos Testnet',
   nativeCurrency: {
-    name: 'AVAX',
-    symbol: 'AVAX',
-    decimals: 18
+    name: 'APT',
+    symbol: 'APT',
+    decimals: 8
   },
-  rpcUrls: ['https://api.avax-test.network/ext/bc/C/rpc'],
-  blockExplorerUrls: ['https://testnet.snowtrace.io/']
+  rpcUrls: ['https://fullnode.testnet.aptoslabs.com/v1'],
+  blockExplorerUrls: ['https://explorer.aptoslabs.com/']
 }
 
 // 合约配置验证
 export const validateContractConfig = () => {
   const errors = []
-  
+
   // 检查地址配置
   for (const [key, address] of Object.entries(CONTRACT_ADDRESSES)) {
     if (!address || address === '0x0000000000000000000000000000000000000000') {
       errors.push(`${key} 地址未配置或无效`)
     }
   }
-  
+
   // 检查ABI配置
   for (const [key, abi] of Object.entries(CONTRACT_ABIS)) {
-    if (!abi || !Array.isArray(abi) || abi.length === 0) {
+    if (!abi || !abi.module) {
       errors.push(`${key} ABI未配置或无效`)
     }
   }
-  
+
   return {
     valid: errors.length === 0,
     errors
@@ -78,11 +88,11 @@ export const validateContractConfig = () => {
 // 导出配置信息
 export const getContractInfo = () => {
   const validation = validateContractConfig()
-  
+
   return {
     addresses: CONTRACT_ADDRESSES,
     abis: CONTRACT_ABIS,
-    network: AVALANCHE_FUJI,
+    network: APTOS_TESTNET,
     validation
   }
 } 

@@ -335,7 +335,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useWeb3Store } from '@/stores/web3'
 import { useDataStore } from '@/stores/data'
-import { CONTRACT_ADDRESSES, AVALANCHE_FUJI } from '@/utils/contracts'
+import { CONTRACT_ADDRESSES, APTOS_TESTNET } from '@/utils/contracts'
 
 const web3Store = useWeb3Store()
 const dataStore = useDataStore()
@@ -357,7 +357,7 @@ const contractAddresses = computed(() => {
 
 // 网络检查
 const isCorrectNetwork = computed(() => {
-  return web3Store.chainId === parseInt(AVALANCHE_FUJI.chainId, 16)
+      return web3Store.chainId === parseInt(APTOS_TESTNET.chainId, 16)
 })
 
 // 网络名称
