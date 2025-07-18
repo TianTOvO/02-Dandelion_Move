@@ -491,17 +491,18 @@ export const useWeb3Store = defineStore('web3', {
         this.loading = true
         this.error = null
 
-        if (!this.contractService) {
-          throw new Error('合约服务未初始化')
+        if (!this.aptosContractService) {
+          throw new Error('Aptos合约服务未初始化')
         }
 
         console.log(`🎯 执行任务操作: ${action}`, { taskId, params })
 
-        const result = await this.contractService[action](taskId, ...params)
+        // 使用aptosContractService执行操作
+        const result = await this.aptosContractService[action](taskId, ...params)
 
         // 添加到交易历史
         this.addToTxHistory({
-          hash: result.txHash,
+          hash: result.txHash || result.hash,
           type: action,
           status: 'confirmed',
           timestamp: Date.now(),

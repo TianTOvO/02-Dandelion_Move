@@ -239,19 +239,19 @@ export const useDataStore = defineStore('data', {
         // 1. 检查Web3连接状态
         const web3Store = useWeb3Store()
 
-        if (web3Store.isConnected && !web3Store.contractService) {
-          console.log('🔗 钱包已连接但合约服务未初始化，正在初始化...')
+        if (web3Store.isConnected && !web3Store.aptosContractService) {
+          console.log('🔗 钱包已连接但Aptos合约服务未初始化，正在初始化...')
           await web3Store.initializeContracts()
         } else if (!web3Store.isConnected) {
           console.log('🔗 钱包未连接，跳过合约初始化')
         }
 
-        // 2. 如果有合约服务，从合约加载任务数据
-        if (web3Store.contractService) {
-          console.log('📡 从智能合约加载任务数据...')
+        // 2. 如果有Aptos合约服务，从合约加载任务数据
+        if (web3Store.aptosContractService) {
+          console.log('📡 从Aptos智能合约加载任务数据...')
           await this.loadTasksFromContract()
         } else {
-          console.log('📝 合约服务不可用，初始化为空数据')
+          console.log('📝 Aptos合约服务不可用，初始化为空数据')
           this.tasks = []
         }
 
@@ -262,7 +262,7 @@ export const useDataStore = defineStore('data', {
           tasks: this.tasks.length,
           users: Object.keys(this.users).length,
           arbitrators: this.arbitrators?.length || 0,
-          contractService: !!web3Store.contractService
+          aptosContractService: !!web3Store.aptosContractService
         })
 
       } catch (error) {

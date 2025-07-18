@@ -960,25 +960,29 @@ const showContractTasks = async () => {
   console.log('🔗 显示合约任务信息...')
   
   try {
-    if (!web3Store.contractService) {
-      console.log('⚠️ 合约服务未初始化')
-      return
+    if (!web3Store.aptosContractService) {
+      console.log('⚠️ Aptos合约服务未初始化，尝试初始化...')
+      const success = await web3Store.initializeContracts()
+      if (!success) {
+        console.log('❌ 合约服务初始化失败')
+        return
+      }
     }
     
-    // 直接从合约获取任务
-    const contractTasks = await web3Store.contractService.getAllTasks()
+    // 使用aptosContractService获取任务
+    const contractTasks = await web3Store.aptosContractService.getAllTasks()
     console.log('🏗️ 合约任务数量:', contractTasks.length)
     console.log('🏗️ 合约任务列表:', contractTasks.map(task => ({
       id: task.id,
       title: task.title,
       creator: task.creator,
       status: task.status,
-      statusText: task.statusText
+      budget: task.budget
     })))
     
     // 检查哪些任务属于当前用户
     const userContractTasks = contractTasks.filter(task => 
-      task.creator.toLowerCase() === web3Store.account?.toLowerCase()
+      task.creator && task.creator.toLowerCase() === web3Store.account?.toLowerCase()
     )
     
     console.log('👤 当前用户的合约任务:', userContractTasks.length, '个')
